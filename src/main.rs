@@ -1,45 +1,33 @@
-use ansi_term::Color;
-use linefeed::{Interface, ReadResult};
-use std::io;
+// in `src/main.rs`
 
-// #[global_allocator]
-// pub static ALLOCATOR: lisp::alloc::Tracing = lisp::alloc::Tracing::new();
+use argh::FromArgs;
 
-fn main() -> io::Result<()> {
-    let interface = Interface::new("color-demo")?;
+#[derive(FromArgs)]
+/// Small string demo
+struct Args {
+    #[argh(subcommand)]
+    subcommand: Subcommand,
+}
 
-    let style = Color::Red.bold();
-    let text = "lisp> ";
+#[derive(FromArgs)]
+#[argh(subcommand)]
+enum Subcommand {
+    Sample(lisp::sample::Sample),
+    Report(lisp::report::Report),
+    Prompt(lisp::prompt::Prompt),
+}
 
-    // The character values '\x01' and '\x02' are used to indicate the beginning
-    // and end of an escape sequence. This informs linefeed, which cannot itself
-    // interpret the meaning of escape sequences, that these characters are not
-    // visible when the prompt is drawn and should not factor into calculating
-    // the visible length of the prompt string.
-    interface.set_prompt(&format!(
-        "\x01{prefix}\x02{text}\x01{suffix}\x02",
-        prefix = style.prefix(),
-        text = text,
-        suffix = style.suffix()
-    ))?;
-
-    while let ReadResult::Input(line) = interface.read_line()? {
-        if line == "exit" {
-            return Ok(());
+impl Subcommand {
+    fn run(self) {
+        match self {
+            Subcommand::Sample(x) => x.run(),
+            Subcommand::Report(x) => x.run(),
+            Subcommand::Prompt(x) => x.run().unwrap(),
         }
-        let ast = match lisp::parser::parse(&line) {
-            Ok(tup) => tup.1,
-            Err(e) => {
-                println!("Could not parse expression! {:?}", e);
-                lisp::Expression::Num(0_f64)
-            }
-        };
-
-        println!("{:?}", ast);
-        println!("{:?}", lisp::eval::eval(&ast));
-
-        interface.add_history_unique(line);
     }
+}
 
-    Ok(())
+fn main() {
+    // see https://turbo.fish/
+    argh::from_env::<Args>().subcommand.run();
 }

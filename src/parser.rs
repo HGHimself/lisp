@@ -3,23 +3,25 @@ use nom::{
     branch::alt,
     character::complete::{char, multispace0, one_of},
     combinator::{all_consuming, map},
-    error::{context, ErrorKind, ParseError, VerboseError},
+    error::{context, ErrorKind, ParseError},
     multi::{fold_many1, many0},
     number::complete::double,
     sequence::{delimited, preceded},
     Err::Error,
     IResult,
 };
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub enum CustomError<I> {
-    MyError,
+pub enum SyntaxError<I> {
+    InvalidArguments,
+    InvalidOperator,
     Nom(I, ErrorKind),
 }
 
-impl<I> ParseError<I> for CustomError<I> {
+impl<I> ParseError<I> for SyntaxError<I> {
     fn from_error_kind(input: I, kind: ErrorKind) -> Self {
-        CustomError::Nom(input, kind)
+        SyntaxError::Nom(input, kind)
     }
 
     fn append(_: I, _: ErrorKind, other: Self) -> Self {
@@ -27,37 +29,37 @@ impl<I> ParseError<I> for CustomError<I> {
     }
 }
 
-fn parse_number(s: &str) -> IResult<&str, Expression> {
-    map(context("number", preceded(multispace0, double)), |n| {
-        Expression::Num(n)
+fn parse_number(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
+    map(preceded(multispace0, double), |n| Expression::Num(n))(s)
+}
+
+fn parse_operator(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
+    map(preceded(multispace0, one_of("+-*/")), |c| {
+        Expression::Op(char_to_operator(c))
     })(s)
 }
 
-fn parse_operator(s: &str) -> IResult<&str, Expression> {
-    map(
-        context("operator", preceded(multispace0, one_of("+-*/"))),
-        |c| Expression::Op(char_to_operator(c)),
-    )(s)
-}
-
-fn parse_arguements(s: &str) -> IResult<&str, Expression> {
+fn parse_arguements(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     match parse_operator(s) {
-        IResult::Ok((remaining, operator)) => map(
-            fold_many1(
+        Ok((rest, operator)) => {
+            let r = fold_many1(
                 parse_expression,
                 move || vec![operator.clone()],
                 |mut acc: Vec<_>, item| {
                     acc.push(item);
                     acc
                 },
-            ),
-            |v| Expression::Exp(v),
-        )(remaining),
-        Err(e) => IResult::Err(e),
+            )(rest);
+            match r {
+                Ok((rest, v)) => Ok((rest, Expression::Exp(v))),
+                Err(_) => Err(Error(SyntaxError::InvalidArguments)),
+            }
+        }
+        Err(e) => Err(Error(SyntaxError::InvalidOperator)),
     }
 }
 
-fn parse_expression(s: &str) -> IResult<&str, Expression> {
+fn parse_expression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     alt((
         parse_number,
         delimited(
@@ -68,7 +70,7 @@ fn parse_expression(s: &str) -> IResult<&str, Expression> {
     ))(s)
 }
 
-pub fn parse(s: &str) -> IResult<&str, Expression> {
+pub fn parse(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     all_consuming(delimited(multispace0, parse_arguements, multispace0))(s)
 }
 
