@@ -1,4 +1,4 @@
-use crate::{char_to_operator, Expression, Operator};
+use crate::{char_to_symbol, Expression, Symbol};
 use nom::{
     branch::alt,
     character::complete::{char, multispace0, one_of},
@@ -10,12 +10,11 @@ use nom::{
     Err::Error,
     IResult,
 };
-use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum SyntaxError<I> {
     InvalidArguments,
-    InvalidOperator,
+    InvalidSymbol,
     Nom(I, ErrorKind),
 }
 
@@ -33,18 +32,18 @@ fn parse_number(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     map(preceded(multispace0, double), |n| Expression::Num(n))(s)
 }
 
-fn parse_operator(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
+fn parse_symbol(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     map(preceded(multispace0, one_of("+-*/")), |c| {
-        Expression::Op(char_to_operator(c))
+        Expression::Sym(char_to_symbol(c))
     })(s)
 }
 
 fn parse_arguements(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    match parse_operator(s) {
-        Ok((rest, operator)) => {
+    match parse_symbol(s) {
+        Ok((rest, symbol)) => {
             let r = fold_many1(
                 parse_expression,
-                move || vec![operator.clone()],
+                move || vec![symbol.clone()],
                 |mut acc: Vec<_>, item| {
                     acc.push(item);
                     acc
@@ -55,7 +54,7 @@ fn parse_arguements(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
                 Err(_) => Err(Error(SyntaxError::InvalidArguments)),
             }
         }
-        Err(e) => Err(Error(SyntaxError::InvalidOperator)),
+        Err(e) => Err(Error(SyntaxError::InvalidSymbol)),
     }
 }
 
@@ -94,20 +93,11 @@ mod test {
     }
 
     #[test]
-    fn it_parses_all_operators() {
-        assert_eq!(parse_operator("+"), Ok(("", Expression::Op(Operator::Add))));
-        assert_eq!(
-            parse_operator("\t-"),
-            Ok(("", Expression::Op(Operator::Sub)))
-        );
-        assert_eq!(
-            parse_operator("  *"),
-            Ok(("", Expression::Op(Operator::Mul)))
-        );
-        assert_eq!(
-            parse_operator("\n/"),
-            Ok(("", Expression::Op(Operator::Div)))
-        );
+    fn it_parses_all_symbols() {
+        assert_eq!(parse_symbol("+"), Ok(("", Expression::Sym(Symbol::Add))));
+        assert_eq!(parse_symbol("\t-"), Ok(("", Expression::Sym(Symbol::Sub))));
+        assert_eq!(parse_symbol("  *"), Ok(("", Expression::Sym(Symbol::Mul))));
+        assert_eq!(parse_symbol("\n/"), Ok(("", Expression::Sym(Symbol::Div))));
     }
 
     #[test]
@@ -120,7 +110,7 @@ mod test {
             Ok((
                 "",
                 Expression::Exp(vec!(
-                    Expression::Op(Operator::Mul),
+                    Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Num(3_f64),
@@ -139,7 +129,7 @@ mod test {
             Ok((
                 "",
                 Expression::Exp(vec!(
-                    Expression::Op(Operator::Mul),
+                    Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Num(3_f64),
@@ -156,11 +146,11 @@ mod test {
             Ok((
                 "",
                 Expression::Exp(vec!(
-                    Expression::Op(Operator::Mul),
+                    Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Exp(vec!(
-                        Expression::Op(Operator::Mul),
+                        Expression::Sym(Symbol::Mul),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
                         Expression::Num(3_f64),
@@ -193,14 +183,14 @@ mod test {
             Ok((
                 "",
                 Expression::Exp(vec!(
-                    Expression::Op(Operator::Mul),
+                    Expression::Sym(Symbol::Mul),
                     Expression::Num(9_f64),
                     Expression::Exp(vec!(
-                        Expression::Op(Operator::Mul),
+                        Expression::Sym(Symbol::Mul),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
                         Expression::Exp(vec!(
-                            Expression::Op(Operator::Mul),
+                            Expression::Sym(Symbol::Mul),
                             Expression::Num(1_f64),
                             Expression::Num(2_f64),
                             Expression::Num(3_f64),

@@ -6,7 +6,7 @@ pub mod report;
 pub mod sample;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Operator {
+pub enum Symbol {
     Add,
     Sub,
     Mul,
@@ -15,23 +15,23 @@ pub enum Operator {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
-    Op(Operator),
+    Sym(Symbol),
     Num(f64),
     Exp(Expressions),
 }
 
 pub type Expressions = Vec<Expression>;
 
-fn char_to_operator(c: char) -> Operator {
+fn char_to_symbol(c: char) -> Symbol {
     if c == '+' {
-        Operator::Add
+        Symbol::Add
     } else if c == '-' {
-        Operator::Sub
+        Symbol::Sub
     } else if c == '*' {
-        Operator::Mul
+        Symbol::Mul
     } else if c == '/' {
-        Operator::Div
+        Symbol::Div
     } else {
-        Operator::Add
+        Symbol::Add
     }
 }

@@ -1,11 +1,23 @@
-use crate::{Expression, Operator};
+use crate::{Expression, Symbol};
 
-pub fn eval(exp: &Expression) -> f64 {
+#[derive(Debug, PartialEq)]
+pub enum LispValue {
+    Num(f64),
+    Error(LispError),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum LispError {
+    DivZero,
+    BadOp,
+    BadNum,
+}
+
+pub fn eval(exp: &Expression) -> LispValue {
     match exp {
-        Expression::Num(x) => *x,
+        Expression::Num(x) => LispValue::Num(*x),
         Expression::Exp(vec) => {
             let op = &vec[0];
-
             let mut x = eval(&vec[1]);
 
             let mut i = 2;
@@ -16,21 +28,37 @@ pub fn eval(exp: &Expression) -> f64 {
 
             x
         }
-        Expression::Op(_) => 0_f64,
+        _ => LispValue::Num(0_f64),
     }
 }
 
-fn eval_op(x: f64, op: &Expression, y: f64) -> f64 {
-    let operator = if let Expression::Op(operator) = op {
+fn eval_op(x: LispValue, op: &Expression, y: LispValue) -> LispValue {
+    let x_value = match x {
+        LispValue::Error(_) => return x,
+        LispValue::Num(v) => v,
+    };
+
+    let y_value = match y {
+        LispValue::Error(_) => return y,
+        LispValue::Num(v) => v,
+    };
+
+    let operator = if let Expression::Sym(operator) = op {
         operator
     } else {
-        &Operator::Add
+        &Symbol::Add
     };
 
     match operator {
-        Operator::Add => x + y,
-        Operator::Sub => x - y,
-        Operator::Mul => x * y,
-        Operator::Div => x / y,
+        Symbol::Add => LispValue::Num(x_value + y_value),
+        Symbol::Sub => LispValue::Num(x_value - y_value),
+        Symbol::Mul => LispValue::Num(x_value * y_value),
+        Symbol::Div => {
+            if y_value == 0_f64 {
+                LispValue::Error(LispError::DivZero)
+            } else {
+                LispValue::Num(x_value / y_value)
+            }
+        }
     }
 }

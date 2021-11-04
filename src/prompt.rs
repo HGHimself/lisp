@@ -34,7 +34,7 @@ impl Prompt {
             let ast = match crate::parser::parse(&line) {
                 Ok(tup) => tup.1,
                 Err(e) => {
-                    println!("Could not parse expression! {}", e);
+                    println!("{}", e);
                     crate::Expression::Num(0_f64)
                 }
             };
