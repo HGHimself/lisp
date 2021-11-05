@@ -14,13 +14,19 @@ pub enum Symbol {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum LispError {
+    DivZero,
+    BadOp,
+    BadNum,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Sym(Symbol),
     Num(f64),
-    Exp(Expressions),
+    Sexp(Vec<Expression>),
+    Error(LispError),
 }
-
-pub type Expressions = Vec<Expression>;
 
 fn char_to_symbol(c: char) -> Symbol {
     if c == '+' {

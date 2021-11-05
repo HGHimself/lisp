@@ -40,7 +40,7 @@ impl Prompt {
             };
 
             println!("{:?}", ast);
-            println!("{:?}", crate::eval::eval(&ast));
+            println!("{:?}", crate::eval::eval(ast));
 
             interface.add_history_unique(line);
         }

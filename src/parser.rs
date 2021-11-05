@@ -1,13 +1,12 @@
-use crate::{char_to_symbol, Expression, Symbol};
+use crate::{char_to_symbol, Expression};
 use nom::{
     branch::alt,
     character::complete::{char, multispace0, one_of},
     combinator::{all_consuming, map},
-    error::{context, ErrorKind, ParseError},
-    multi::{fold_many1, many0},
+    error::{ErrorKind, ParseError},
+    multi::many0,
     number::complete::double,
     sequence::{delimited, preceded},
-    Err::Error,
     IResult,
 };
 
@@ -38,44 +37,30 @@ fn parse_symbol(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     })(s)
 }
 
-fn parse_arguements(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    match parse_symbol(s) {
-        Ok((rest, symbol)) => {
-            let r = fold_many1(
-                parse_expression,
-                move || vec![symbol.clone()],
-                |mut acc: Vec<_>, item| {
-                    acc.push(item);
-                    acc
-                },
-            )(rest);
-            match r {
-                Ok((rest, v)) => Ok((rest, Expression::Exp(v))),
-                Err(_) => Err(Error(SyntaxError::InvalidArguments)),
-            }
-        }
-        Err(e) => Err(Error(SyntaxError::InvalidSymbol)),
-    }
+fn parse_sexpression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
+    delimited(
+        preceded(multispace0, char('(')),
+        map(many0(parse_expression), |e| Expression::Sexp(e)),
+        preceded(multispace0, char(')')),
+    )(s)
 }
 
 fn parse_expression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    alt((
-        parse_number,
-        delimited(
-            preceded(multispace0, char('(')),
-            parse_arguements,
-            preceded(multispace0, char(')')),
-        ),
-    ))(s)
+    alt((parse_number, parse_symbol, parse_sexpression))(s)
 }
 
 pub fn parse(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    all_consuming(delimited(multispace0, parse_arguements, multispace0))(s)
+    all_consuming(delimited(
+        multispace0,
+        map(many0(parse_expression), |e| Expression::Sexp(e)),
+        multispace0,
+    ))(s)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Symbol;
 
     #[test]
     fn it_parses_numbers() {
@@ -101,15 +86,15 @@ mod test {
     }
 
     #[test]
-    fn it_parses_arguements() {
+    fn it_parses_sexpr() {
         assert_eq!(
-            parse_arguements(
-                "* 1
-             2 3"
+            parse_sexpression(
+                "(* 1
+             2 3)"
             ),
             Ok((
                 "",
-                Expression::Exp(vec!(
+                Expression::Sexp(vec!(
                     Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
@@ -128,7 +113,7 @@ mod test {
             ),
             Ok((
                 "",
-                Expression::Exp(vec!(
+                Expression::Sexp(vec!(
                     Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
@@ -145,11 +130,11 @@ mod test {
             ),
             Ok((
                 "",
-                Expression::Exp(vec!(
+                Expression::Sexp(vec!(
                     Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
-                    Expression::Exp(vec!(
+                    Expression::Sexp(vec!(
                         Expression::Sym(Symbol::Mul),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
@@ -182,14 +167,14 @@ mod test {
             ),
             Ok((
                 "",
-                Expression::Exp(vec!(
+                Expression::Sexp(vec!(
                     Expression::Sym(Symbol::Mul),
                     Expression::Num(9_f64),
-                    Expression::Exp(vec!(
+                    Expression::Sexp(vec!(
                         Expression::Sym(Symbol::Mul),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
-                        Expression::Exp(vec!(
+                        Expression::Sexp(vec!(
                             Expression::Sym(Symbol::Mul),
                             Expression::Num(1_f64),
                             Expression::Num(2_f64),

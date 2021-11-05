@@ -89,7 +89,7 @@ impl Sample {
                 }
             };
             // println!("{:?}", ast);
-            crate::eval::eval(&ast);
+            crate::eval::eval(ast);
         }
         ALLOCATOR.set_active(false);
     }
