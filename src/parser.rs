@@ -1,7 +1,7 @@
-use crate::{char_to_symbol, Expression};
+use crate::{char_to_symbol, string_to_symbol, Expression};
 use nom::{
     branch::alt,
-    character::complete::{char, multispace0, one_of},
+    character::complete::{alphanumeric1, char, multispace0, one_of},
     combinator::{all_consuming, map},
     error::{ErrorKind, ParseError},
     multi::many0,
@@ -32,9 +32,13 @@ fn parse_number(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
 }
 
 fn parse_symbol(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    map(preceded(multispace0, one_of("+-*/")), |c| {
-        Expression::Sym(char_to_symbol(c))
-    })(s)
+    preceded(
+        multispace0,
+        alt((
+            map(one_of("+-*/"), |c| Expression::Sym(char_to_symbol(c))),
+            map(alphanumeric1, |s| Expression::Sym(string_to_symbol(s))),
+        )),
+    )(s)
 }
 
 fn parse_sexpression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
@@ -45,8 +49,21 @@ fn parse_sexpression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
     )(s)
 }
 
+fn parse_qexpression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
+    delimited(
+        preceded(multispace0, char('{')),
+        map(many0(parse_expression), |e| Expression::Qexp(e)),
+        preceded(multispace0, char('}')),
+    )(s)
+}
+
 fn parse_expression(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    alt((parse_number, parse_symbol, parse_sexpression))(s)
+    alt((
+        parse_number,
+        parse_symbol,
+        parse_sexpression,
+        parse_qexpression,
+    ))(s)
 }
 
 pub fn parse(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
@@ -95,6 +112,25 @@ mod test {
             Ok((
                 "",
                 Expression::Sexp(vec!(
+                    Expression::Sym(Symbol::Mul),
+                    Expression::Num(1_f64),
+                    Expression::Num(2_f64),
+                    Expression::Num(3_f64),
+                ))
+            ))
+        );
+    }
+
+    #[test]
+    fn it_parses_qexpr() {
+        assert_eq!(
+            parse_qexpression(
+                "{* 1
+             2 3}"
+            ),
+            Ok((
+                "",
+                Expression::Qexp(vec!(
                     Expression::Sym(Symbol::Mul),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
