@@ -89,7 +89,8 @@ impl Sample {
                 }
             };
             // println!("{:?}", ast);
-            crate::eval::eval(ast);
+            let mut env = crate::init_env();
+            crate::eval::eval(&mut env, ast);
         }
         ALLOCATOR.set_active(false);
     }

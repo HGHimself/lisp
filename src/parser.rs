@@ -42,7 +42,7 @@ fn parse_symbol(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
                 |c| format!("{}", c),
             )),
         ),
-        |o| Lval::Sym(o.join("")),
+        |o| Lval::Sym(Box::new(o.join(""))),
     )(s)
 }
 
@@ -74,7 +74,7 @@ fn parse_expression(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
 pub fn parse(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
     all_consuming(delimited(
         multispace0,
-        map(many0(parse_expression), |e| Lval::Sexpr(e)),
+        map(many1(parse_expression), |e| Lval::Sexpr(e)),
         multispace0,
     ))(s)
 }
@@ -97,17 +97,29 @@ mod test {
 
     #[test]
     fn it_parses_all_symbols() {
-        assert_eq!(parse_symbol("+"), Ok(("", Lval::Sym(String::from("+")))));
-        assert_eq!(parse_symbol("\t-"), Ok(("", Lval::Sym(String::from("-")))));
-        assert_eq!(parse_symbol("  *"), Ok(("", Lval::Sym(String::from("*")))));
-        assert_eq!(parse_symbol("\n/"), Ok(("", Lval::Sym(String::from("/")))));
+        assert_eq!(
+            parse_symbol("+"),
+            Ok(("", Lval::Sym(Box::new(String::from("+")))))
+        );
+        assert_eq!(
+            parse_symbol("\t-"),
+            Ok(("", Lval::Sym(Box::new(String::from("-")))))
+        );
+        assert_eq!(
+            parse_symbol("  *"),
+            Ok(("", Lval::Sym(Box::new(String::from("*")))))
+        );
+        assert_eq!(
+            parse_symbol("\n/"),
+            Ok(("", Lval::Sym(Box::new(String::from("/")))))
+        );
         assert_eq!(
             parse_symbol("orange"),
-            Ok(("", Lval::Sym(String::from("orange"))))
+            Ok(("", Lval::Sym(Box::new(String::from("orange")))))
         );
         assert_eq!(
             parse_symbol("tail"),
-            Ok(("", Lval::Sym(String::from("tail"))))
+            Ok(("", Lval::Sym(Box::new(String::from("tail")))))
         );
     }
 
@@ -121,7 +133,7 @@ mod test {
             Ok((
                 "",
                 Lval::Sexpr(vec!(
-                    Lval::Sym(String::from("*")),
+                    Lval::Sym(Box::new(String::from("*"))),
                     Lval::Num(1_f64),
                     Lval::Num(2_f64),
                     Lval::Num(3_f64),
@@ -140,7 +152,7 @@ mod test {
             Ok((
                 "",
                 Lval::Qexpr(vec!(
-                    Lval::Sym(String::from("*")),
+                    Lval::Sym(Box::new(String::from("*"))),
                     Lval::Num(1_f64),
                     Lval::Num(2_f64),
                     Lval::Num(3_f64),
@@ -150,7 +162,7 @@ mod test {
     }
 
     #[test]
-    fn it_parses_an_Lval() {
+    fn it_parses_an_expression() {
         assert_eq!(
             parse_expression(
                 "(* 1
@@ -159,12 +171,18 @@ mod test {
             Ok((
                 "",
                 Lval::Sexpr(vec!(
-                    Lval::Sym(String::from("*")),
+                    Lval::Sym(Box::new(String::from("*"))),
                     Lval::Num(1_f64),
                     Lval::Num(2_f64),
                     Lval::Num(3_f64),
                 ))
             ))
+        );
+
+        assert_eq!(parse_expression("1"), Ok(("", Lval::Num(1_f64),)));
+        assert_eq!(
+            parse_expression("*"),
+            Ok(("", Lval::Sym(Box::new(String::from("*")),)))
         );
 
         assert_eq!(
@@ -176,11 +194,11 @@ mod test {
             Ok((
                 "",
                 Lval::Sexpr(vec!(
-                    Lval::Sym(String::from("*")),
+                    Lval::Sym(Box::new(String::from("*"))),
                     Lval::Num(1_f64),
                     Lval::Num(2_f64),
                     Lval::Sexpr(vec!(
-                        Lval::Sym(String::from("*")),
+                        Lval::Sym(Box::new(String::from("*"))),
                         Lval::Num(1_f64),
                         Lval::Num(2_f64),
                         Lval::Num(3_f64),
@@ -213,14 +231,14 @@ mod test {
             Ok((
                 "",
                 Lval::Sexpr(vec!(
-                    Lval::Sym(String::from("*")),
+                    Lval::Sym(Box::new(String::from("*"))),
                     Lval::Num(9_f64),
                     Lval::Sexpr(vec!(
-                        Lval::Sym(String::from("*")),
+                        Lval::Sym(Box::new(String::from("*"))),
                         Lval::Num(1_f64),
                         Lval::Num(2_f64),
                         Lval::Sexpr(vec!(
-                            Lval::Sym(String::from("*")),
+                            Lval::Sym(Box::new(String::from("*"))),
                             Lval::Num(1_f64),
                             Lval::Num(2_f64),
                             Lval::Num(3_f64),
@@ -229,5 +247,23 @@ mod test {
                 ))
             ))
         );
+        assert_eq!(parse("()"), Ok(("", Lval::Sexpr(vec![]))));
+        // assert_eq!(
+        //     parse("*"),
+        //     Ok(("", Lval::Sym(Box::new(String::from("*"))),))
+        // );
+        // assert_eq!(parse("9"), Ok(("", Lval::Num(9_f64),)));
+        // assert_eq!(
+        //     parse("* 1 2 3"),
+        //     Ok((
+        //         "",
+        //         Lval::Sexpr(vec!(
+        //             Lval::Sym(Box::new(String::from("*"))),
+        //             Lval::Num(1_f64),
+        //             Lval::Num(2_f64),
+        //             Lval::Num(3_f64),
+        //         )),
+        //     ))
+        // );
     }
 }

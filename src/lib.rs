@@ -6,6 +6,7 @@ pub mod prompt;
 pub mod report;
 pub mod sample;
 
+use crate::builtin::init_builtins;
 use std::{collections::HashMap, error::Error, fmt, iter::FromIterator};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -23,6 +24,7 @@ impl Lerr {
             LerrType::IncorrectParamCount => "Incorrect Number of Params passed to function",
             LerrType::WrongType => "Incorrect Data Type used",
             LerrType::EmptyList => "Empty List passed to function",
+            LerrType::UnboundSymbol => "This Symbol has not been Defined",
         };
 
         Lerr {
@@ -52,11 +54,12 @@ pub enum LerrType {
     IncorrectParamCount,
     EmptyList,
     WrongType,
+    UnboundSymbol,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum Lval {
-    Sym(String),
+    Sym(Box<String>),
     Num(f64),
     Sexpr(Vec<Lval>),
     Qexpr(Vec<Lval>),
@@ -64,8 +67,56 @@ pub enum Lval {
     Fun(Lfun),
 }
 
+impl PartialEq for Lval {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Lval::Sym(a) => match other {
+                Lval::Sym(b) => true,
+                _ => false,
+            },
+            Lval::Num(a) => match other {
+                Lval::Num(b) => a == b,
+                _ => false,
+            },
+            Lval::Sexpr(a) => match other {
+                Lval::Sexpr(b) => a == b,
+                _ => false,
+            },
+            Lval::Qexpr(a) => match other {
+                Lval::Qexpr(b) => a == b,
+                _ => false,
+            },
+            Lval::Error(a) => match other {
+                Lval::Error(b) => a == b,
+                _ => false,
+            },
+            Lval::Fun(_) => match other {
+                Lval::Fun(_) => true,
+                _ => false,
+            },
+        }
+    }
+}
+
+impl fmt::Debug for Lval {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Lval").field("x", &self).finish()
+    }
+}
+
 pub type Lenv = HashMap<String, Lval>;
-pub type Lfun = fn(Lenv, Lval) -> Lval;
+pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Lval;
+
+pub fn init_env() -> Lenv {
+    let mut env = Lenv::new();
+    init_builtins(&mut env);
+    env
+}
+
+pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
+    env.insert(sym.to_string(), Lval::Fun(fun));
+    // env.insert(sym.to_string(), Lval::Num(1_f64));
+}
 
 // FromIterator<Lval>` is not implemented for `Result<Vec<Lval>, _>
 impl FromIterator<Lval> for Result<Vec<Lval>, Lerr> {
@@ -113,9 +164,9 @@ fn is_qexpr(expr: &Lval) -> bool {
     }
 }
 
-fn to_sym(expr: &Lval) -> Option<String> {
-    if let Lval::Sym(s) = expr {
-        Some(s.clone())
+fn to_fun(expr: &Lval) -> Option<Lfun> {
+    if let Lval::Fun(s) = expr {
+        Some(*s)
     } else {
         None
     }

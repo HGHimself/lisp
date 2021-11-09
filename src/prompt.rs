@@ -27,6 +27,8 @@ impl Prompt {
             suffix = style.suffix()
         ))?;
 
+        let mut env = crate::init_env();
+
         while let ReadResult::Input(line) = interface.read_line()? {
             if line == "exit" {
                 return Ok(());
@@ -38,9 +40,9 @@ impl Prompt {
                     crate::Lval::Num(0_f64)
                 }
             };
-
             println!("{:?}", ast);
-            println!("{:?}", crate::eval::eval(ast));
+
+            // println!("{:?}", crate::eval::eval(&mut env, ast));
 
             interface.add_history_unique(line);
         }
