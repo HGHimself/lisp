@@ -33,6 +33,7 @@ impl Prompt {
             if line == "exit" {
                 return Ok(());
             }
+
             let ast = match crate::parser::parse(&line) {
                 Ok(tup) => tup.1,
                 Err(e) => {
@@ -41,8 +42,7 @@ impl Prompt {
                 }
             };
             println!("{:?}", ast);
-
-            // println!("{:?}", crate::eval::eval(&mut env, ast));
+            println!("{:?}", crate::eval::eval(&mut env, ast));
 
             interface.add_history_unique(line);
         }

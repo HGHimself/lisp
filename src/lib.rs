@@ -1,12 +1,12 @@
 pub mod alloc;
-// pub mod builtin;
-// pub mod eval;
+pub mod builtin;
+pub mod eval;
 pub mod parser;
-// pub mod prompt;
-// pub mod report;
-// pub mod sample;
+pub mod prompt;
+pub mod report;
+pub mod sample;
 
-// use crate::builtin::init_builtins;
+use crate::builtin::init_builtins;
 use std::{collections::HashMap, error::Error, fmt, iter::FromIterator};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -71,7 +71,7 @@ impl PartialEq for Lval {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Lval::Sym(a) => match other {
-                Lval::Sym(b) => true,
+                Lval::Sym(b) => a == b,
                 _ => false,
             },
             Lval::Num(a) => match other {
@@ -100,18 +100,25 @@ impl PartialEq for Lval {
 
 impl fmt::Debug for Lval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Lval").field("x", &self).finish()
+        match &self {
+            Lval::Sym(s) => write!(f, "Sym::{}", s),
+            Lval::Num(n) => write!(f, "Num::{}", n),
+            Lval::Sexpr(s) => write!(f, "Sexpr::{:?}", s),
+            Lval::Qexpr(q) => write!(f, "Qexpr::{:?}", q),
+            Lval::Error(e) => write!(f, "Error::{}", e),
+            Lval::Fun(_) => write!(f, "Fun"),
+        }
     }
 }
 
 pub type Lenv = HashMap<String, Lval>;
 pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Lval;
 
-// pub fn init_env() -> Lenv {
-//     let mut env = Lenv::new();
-//     init_builtins(&mut env);
-//     env
-// }
+pub fn init_env() -> Lenv {
+    let mut env = Lenv::new();
+    init_builtins(&mut env);
+    env
+}
 
 pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
     env.insert(sym.to_string(), Lval::Fun(fun));

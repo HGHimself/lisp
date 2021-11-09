@@ -3,6 +3,7 @@ use crate::{builtin, init_env, to_fun, Lenv, Lerr, LerrType, Lval};
 pub fn eval(env: &mut Lenv, expr: Lval) -> Lval {
     match expr {
         Lval::Sym(s) => eval_symbol(env, s),
+        // Lval::Sym(s) => Lval::Sym(s),
         Lval::Num(_) => expr,
         Lval::Error(_) => expr,
         Lval::Qexpr(_) => expr,
@@ -52,6 +53,10 @@ fn eval_sexpression(env: &mut Lenv, sexpr: Vec<Lval>) -> Lval {
 mod tests {
     use super::*;
 
+    fn empty_fun(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+        Lval::Sexpr(vec![])
+    }
+
     #[test]
     fn it_handles_singular_numbers() {
         let mut env = init_env();
@@ -67,7 +72,7 @@ mod tests {
         let mut env = init_env();
         assert_eq!(
             eval(&mut env, Lval::Sym(String::from("+"))),
-            Lval::Sym(String::from("+"))
+            Lval::Fun(empty_fun)
         );
         // assert_eq!(
         //     eval(&mut env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),

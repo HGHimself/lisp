@@ -200,6 +200,11 @@ mod test {
                 Lval::Num(9_f64)
             ))
         );
+        assert_eq!(parse_expression("1"), Ok(("", Lval::Num(1_f64),)));
+        assert_eq!(
+            parse_expression("*"),
+            Ok(("", Lval::Sym(String::from("*"),)))
+        );
     }
 
     #[test]
@@ -227,6 +232,28 @@ mod test {
                         )),
                     )),
                 ))
+            ))
+        );
+        assert_eq!(parse(""), Ok(("", Lval::Sexpr(vec![]))));
+        assert_eq!(
+            parse("()"),
+            Ok(("", Lval::Sexpr(vec![Lval::Sexpr(vec![])])))
+        );
+        assert_eq!(
+            parse("*"),
+            Ok(("", Lval::Sexpr(vec![Lval::Sym(String::from("*"))]),))
+        );
+        assert_eq!(parse("9"), Ok(("", Lval::Sexpr(vec![Lval::Num(9_f64)]),)));
+        assert_eq!(
+            parse("* 1 2 3"),
+            Ok((
+                "",
+                Lval::Sexpr(vec!(
+                    Lval::Sym(String::from("*")),
+                    Lval::Num(1_f64),
+                    Lval::Num(2_f64),
+                    Lval::Num(3_f64),
+                )),
             ))
         );
     }

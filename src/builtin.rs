@@ -161,6 +161,10 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 mod tests {
     use super::*;
 
+    fn empty_fun(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+        Lval::Sexpr(vec![])
+    }
+
     #[test]
     fn it_correctly_uses_head() {
         let mut env = init_env();
@@ -301,11 +305,14 @@ mod tests {
         );
         assert_eq!(
             builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
-            Lval::Sym(String::from("-"))
+            Lval::Fun(empty_fun)
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            builtin_eval(
+                &mut env,
+                vec![Lval::Sexpr(vec![Lval::Sym(String::from("-"))])]
+            ),
+            Lval::Fun(empty_fun)
         );
         assert_eq!(
             builtin_eval(&mut env, vec![Lval::Qexpr(vec![])]),
