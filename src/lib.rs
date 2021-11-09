@@ -1,4 +1,5 @@
 pub mod alloc;
+pub mod builtin;
 pub mod eval;
 pub mod parser;
 pub mod prompt;
@@ -6,20 +7,6 @@ pub mod report;
 pub mod sample;
 
 use std::{error::Error, fmt, iter::FromIterator};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Symbol {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    List,
-    Head,
-    Tail,
-    Join,
-    Eval,
-    Noop,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LispError {
@@ -69,7 +56,7 @@ pub enum LispErrorType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
-    Sym(Symbol),
+    Sym(String),
     Num(f64),
     Sexp(Vec<Expression>),
     Qexp(Vec<Expression>),
@@ -89,36 +76,6 @@ impl FromIterator<Expression> for Result<Vec<Expression>, LispError> {
         }
 
         Ok(c)
-    }
-}
-
-fn char_to_symbol(c: char) -> Symbol {
-    if c == '+' {
-        Symbol::Add
-    } else if c == '-' {
-        Symbol::Sub
-    } else if c == '*' {
-        Symbol::Mul
-    } else if c == '/' {
-        Symbol::Div
-    } else {
-        Symbol::Add
-    }
-}
-
-fn string_to_symbol(s: &str) -> Symbol {
-    if s == "list" {
-        Symbol::List
-    } else if s == "head" {
-        Symbol::Head
-    } else if s == "tail" {
-        Symbol::Tail
-    } else if s == "join" {
-        Symbol::Join
-    } else if s == "eval" {
-        Symbol::Eval
-    } else {
-        Symbol::Noop
     }
 }
 
@@ -160,9 +117,9 @@ fn is_qexp(expr: &Expression) -> bool {
     }
 }
 
-fn to_sym(expr: &Expression) -> Option<Symbol> {
+fn to_sym(expr: &Expression) -> Option<String> {
     if let Expression::Sym(s) = expr {
-        Some(*s)
+        Some(s.clone())
     } else {
         None
     }

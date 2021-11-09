@@ -1,10 +1,10 @@
-use crate::{char_to_symbol, string_to_symbol, Expression};
+use crate::Expression;
 use nom::{
     branch::alt,
-    character::complete::{alphanumeric1, char, multispace0, one_of},
+    character::complete::{char, multispace0, one_of},
     combinator::{all_consuming, map},
     error::{ErrorKind, ParseError},
-    multi::many0,
+    multi::{many0, many1},
     number::complete::double,
     sequence::{delimited, preceded},
     IResult,
@@ -32,12 +32,17 @@ fn parse_number(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
 }
 
 fn parse_symbol(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
-    preceded(
-        multispace0,
-        alt((
-            map(one_of("+-*/"), |c| Expression::Sym(char_to_symbol(c))),
-            map(alphanumeric1, |s| Expression::Sym(string_to_symbol(s))),
-        )),
+    map(
+        preceded(
+            multispace0,
+            many1(map(
+                one_of(
+                    "_+\\-*/=<>!&%abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                ),
+                |c| format!("{}", c),
+            )),
+        ),
+        |o| Expression::Sym(o.join("")),
     )(s)
 }
 
@@ -77,7 +82,6 @@ pub fn parse(s: &str) -> IResult<&str, Expression, SyntaxError<&str>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Symbol;
 
     #[test]
     fn it_parses_numbers() {
@@ -96,10 +100,30 @@ mod test {
 
     #[test]
     fn it_parses_all_symbols() {
-        assert_eq!(parse_symbol("+"), Ok(("", Expression::Sym(Symbol::Add))));
-        assert_eq!(parse_symbol("\t-"), Ok(("", Expression::Sym(Symbol::Sub))));
-        assert_eq!(parse_symbol("  *"), Ok(("", Expression::Sym(Symbol::Mul))));
-        assert_eq!(parse_symbol("\n/"), Ok(("", Expression::Sym(Symbol::Div))));
+        assert_eq!(
+            parse_symbol("+"),
+            Ok(("", Expression::Sym(String::from("+"))))
+        );
+        assert_eq!(
+            parse_symbol("\t-"),
+            Ok(("", Expression::Sym(String::from("-"))))
+        );
+        assert_eq!(
+            parse_symbol("  *"),
+            Ok(("", Expression::Sym(String::from("*"))))
+        );
+        assert_eq!(
+            parse_symbol("\n/"),
+            Ok(("", Expression::Sym(String::from("/"))))
+        );
+        assert_eq!(
+            parse_symbol("orange"),
+            Ok(("", Expression::Sym(String::from("orange"))))
+        );
+        assert_eq!(
+            parse_symbol("tail"),
+            Ok(("", Expression::Sym(String::from("tail"))))
+        );
     }
 
     #[test]
@@ -112,7 +136,7 @@ mod test {
             Ok((
                 "",
                 Expression::Sexp(vec!(
-                    Expression::Sym(Symbol::Mul),
+                    Expression::Sym(String::from("*")),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Num(3_f64),
@@ -131,7 +155,7 @@ mod test {
             Ok((
                 "",
                 Expression::Qexp(vec!(
-                    Expression::Sym(Symbol::Mul),
+                    Expression::Sym(String::from("*")),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Num(3_f64),
@@ -150,7 +174,7 @@ mod test {
             Ok((
                 "",
                 Expression::Sexp(vec!(
-                    Expression::Sym(Symbol::Mul),
+                    Expression::Sym(String::from("*")),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Num(3_f64),
@@ -167,11 +191,11 @@ mod test {
             Ok((
                 "",
                 Expression::Sexp(vec!(
-                    Expression::Sym(Symbol::Mul),
+                    Expression::Sym(String::from("*")),
                     Expression::Num(1_f64),
                     Expression::Num(2_f64),
                     Expression::Sexp(vec!(
-                        Expression::Sym(Symbol::Mul),
+                        Expression::Sym(String::from("*")),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
                         Expression::Num(3_f64),
@@ -204,14 +228,14 @@ mod test {
             Ok((
                 "",
                 Expression::Sexp(vec!(
-                    Expression::Sym(Symbol::Mul),
+                    Expression::Sym(String::from("*")),
                     Expression::Num(9_f64),
                     Expression::Sexp(vec!(
-                        Expression::Sym(Symbol::Mul),
+                        Expression::Sym(String::from("*")),
                         Expression::Num(1_f64),
                         Expression::Num(2_f64),
                         Expression::Sexp(vec!(
-                            Expression::Sym(Symbol::Mul),
+                            Expression::Sym(String::from("*")),
                             Expression::Num(1_f64),
                             Expression::Num(2_f64),
                             Expression::Num(3_f64),
