@@ -1,12 +1,12 @@
 pub mod alloc;
-pub mod builtin;
-pub mod eval;
+// pub mod builtin;
+// pub mod eval;
 pub mod parser;
-pub mod prompt;
-pub mod report;
-pub mod sample;
+// pub mod prompt;
+// pub mod report;
+// pub mod sample;
 
-use crate::builtin::init_builtins;
+// use crate::builtin::init_builtins;
 use std::{collections::HashMap, error::Error, fmt, iter::FromIterator};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,7 +59,7 @@ pub enum LerrType {
 
 #[derive(Clone)]
 pub enum Lval {
-    Sym(Box<String>),
+    Sym(String),
     Num(f64),
     Sexpr(Vec<Lval>),
     Qexpr(Vec<Lval>),
@@ -107,11 +107,11 @@ impl fmt::Debug for Lval {
 pub type Lenv = HashMap<String, Lval>;
 pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Lval;
 
-pub fn init_env() -> Lenv {
-    let mut env = Lenv::new();
-    init_builtins(&mut env);
-    env
-}
+// pub fn init_env() -> Lenv {
+//     let mut env = Lenv::new();
+//     init_builtins(&mut env);
+//     env
+// }
 
 pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
     env.insert(sym.to_string(), Lval::Fun(fun));

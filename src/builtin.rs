@@ -165,24 +165,24 @@ mod tests {
     fn it_correctly_uses_head() {
         let mut env = init_env();
         let expr = Lval::Qexpr(vec![
-            Lval::Sym(Box::new(String::from("+"))),
+            Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
             Lval::Sexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ]),
         ]);
         assert_eq!(
             builtin_head(&mut env, vec![expr.clone()]),
-            Lval::Sym(Box::new(String::from("+")))
+            Lval::Sym(String::from("+"))
         );
         assert_eq!(
             builtin_head(&mut env, vec![]),
             Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_head(&mut env, vec![Lval::Sym(Box::new(String::from("+")))]),
+            builtin_head(&mut env, vec![Lval::Sym(String::from("+"))]),
             Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
@@ -195,10 +195,10 @@ mod tests {
     fn it_correctly_uses_tail() {
         let mut env = init_env();
         let expr = Lval::Qexpr(vec![
-            Lval::Sym(Box::new(String::from("+"))),
+            Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
             Lval::Sexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ]),
@@ -208,7 +208,7 @@ mod tests {
             Lval::Qexpr(vec![
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ])
@@ -219,7 +219,7 @@ mod tests {
             Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_tail(&mut env, vec![Lval::Sym(Box::new(String::from("+")))]),
+            builtin_tail(&mut env, vec![Lval::Sym(String::from("+"))]),
             Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
@@ -232,10 +232,10 @@ mod tests {
     fn it_correctly_uses_list() {
         let mut env = init_env();
         let expr = vec![
-            Lval::Sym(Box::new(String::from("+"))),
+            Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
             Lval::Sexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ]),
@@ -243,10 +243,10 @@ mod tests {
         assert_eq!(
             builtin_list(&mut env, expr.clone()),
             Lval::Qexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ])
@@ -256,21 +256,21 @@ mod tests {
             builtin_list(
                 &mut env,
                 vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ]
             ),
             Lval::Qexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ])
         );
         assert_eq!(builtin_list(&mut env, vec![]), Lval::Qexpr(vec![]));
         assert_eq!(
-            builtin_list(&mut env, vec![Lval::Sym(Box::new(String::from("+")))]),
-            Lval::Qexpr(vec![Lval::Sym(Box::new(String::from("+"))),])
+            builtin_list(&mut env, vec![Lval::Sym(String::from("+"))]),
+            Lval::Qexpr(vec![Lval::Sym(String::from("+")),])
         );
         assert_eq!(
             builtin_list(&mut env, vec![Lval::Sexpr(vec![])]),
@@ -282,10 +282,10 @@ mod tests {
     fn it_correctly_uses_eval() {
         let mut env = init_env();
         let expr = Lval::Qexpr(vec![
-            Lval::Sym(Box::new(String::from("+"))),
+            Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
             Lval::Sexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ]),
@@ -300,11 +300,11 @@ mod tests {
             Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![Lval::Sym(Box::new(String::from("-")))]),
-            Lval::Sym(Box::new(String::from("-")))
+            builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
+            Lval::Sym(String::from("-"))
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![Lval::Sym(Box::new(String::from("-")))]),
+            builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
             Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
@@ -317,10 +317,10 @@ mod tests {
     fn it_correctly_uses_join() {
         let mut env = init_env();
         let expr = Lval::Qexpr(vec![
-            Lval::Sym(Box::new(String::from("+"))),
+            Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
             Lval::Sexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Num(1_f64),
             ]),
@@ -328,17 +328,17 @@ mod tests {
         assert_eq!(
             builtin_join(&mut env, vec![expr.clone(), expr.clone()]),
             Lval::Qexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ]),
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ]),
@@ -353,19 +353,16 @@ mod tests {
             Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_join(
-                &mut env,
-                vec![expr.clone(), Lval::Sym(Box::new(String::from("+")))]
-            ),
+            builtin_join(&mut env, vec![expr.clone(), Lval::Sym(String::from("+"))]),
             Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
             builtin_join(&mut env, vec![expr.clone(), Lval::Qexpr(vec![])]),
             Lval::Qexpr(vec![
-                Lval::Sym(Box::new(String::from("+"))),
+                Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ]),

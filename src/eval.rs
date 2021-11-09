@@ -11,7 +11,7 @@ pub fn eval(env: &mut Lenv, expr: Lval) -> Lval {
     }
 }
 
-fn eval_symbol(env: &Lenv, s: Box<String>) -> Lval {
+fn eval_symbol(env: &Lenv, s: String) -> Lval {
     let key = s.to_string();
     match env.get(&key) {
         Some(lval) => lval.clone(),
@@ -66,8 +66,8 @@ mod tests {
     fn it_handles_singular_symbols() {
         let mut env = init_env();
         assert_eq!(
-            eval(&mut env, Lval::Sym(Box::new(String::from("+")))),
-            Lval::Sym(Box::new(String::from("+")))
+            eval(&mut env, Lval::Sym(String::from("+"))),
+            Lval::Sym(String::from("+"))
         );
         // assert_eq!(
         //     eval(&mut env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),
@@ -102,7 +102,7 @@ mod tests {
             eval(
                 &mut env,
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ])
@@ -113,8 +113,8 @@ mod tests {
             eval(
                 &mut env,
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                 ])
             ),
@@ -136,10 +136,10 @@ mod tests {
             eval(
                 &mut env,
                 Lval::Sexpr(vec![
-                    Lval::Sym(Box::new(String::from("+"))),
+                    Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
                     Lval::Sexpr(vec![
-                        Lval::Sym(Box::new(String::from("+"))),
+                        Lval::Sym(String::from("+")),
                         Lval::Num(1_f64),
                         Lval::Num(1_f64),
                     ]),
