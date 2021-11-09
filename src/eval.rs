@@ -1,28 +1,28 @@
-use crate::{builtin, to_sym, Expression, LispError, LispErrorType};
+use crate::{builtin, to_sym, Lerr, LerrType, Lval};
 
-pub fn eval(expr: Expression) -> Expression {
+pub fn eval(expr: Lval) -> Lval {
     match expr {
-        Expression::Sym(_) => expr,
-        Expression::Num(_) => expr,
-        Expression::Error(_) => expr,
-        Expression::Qexp(_) => expr,
-        Expression::Sexp(vec) => eval_sexpression(vec),
+        Lval::Sym(_) => expr,
+        Lval::Num(_) => expr,
+        Lval::Error(_) => expr,
+        Lval::Qexpr(_) => expr,
+        Lval::Sexpr(vec) => eval_sexpression(vec),
+        Lval::Fun(_) => expr,
     }
 }
 
-fn eval_sexpression(sexpr: Vec<Expression>) -> Expression {
+fn eval_sexpression(sexpr: Vec<Lval>) -> Lval {
     // evaluate each element
-    let results: Result<Vec<Expression>, LispError> =
-        sexpr.into_iter().map(|expr| eval(expr)).collect();
+    let results: Result<Vec<Lval>, Lerr> = sexpr.into_iter().map(|expr| eval(expr)).collect();
     // surface any errors
     let sexpr = match results {
         Ok(sexpr) => sexpr,
-        Err(e) => return Expression::Error(e),
+        Err(e) => return Lval::Error(e),
     };
 
     if sexpr.len() == 0 {
         // if empty return empty
-        return Expression::Sexp(sexpr);
+        return Lval::Sexpr(sexpr);
     } else if sexpr.len() == 1 {
         // if singular value return singular value
         return sexpr[0].clone();
@@ -35,7 +35,7 @@ fn eval_sexpression(sexpr: Vec<Expression>) -> Expression {
             return builtin::builtin(&sym, operands);
         } else {
             // we needed an operator for the first element to calculate
-            return Expression::Error(LispError::new(LispErrorType::BadOp));
+            return Lval::Error(Lerr::new(LerrType::BadOp));
         }
     }
 }
@@ -46,83 +46,78 @@ mod test {
 
     #[test]
     fn it_handles_singular_numbers() {
-        assert_eq!(eval(Expression::Num(1_f64)), Expression::Num(1_f64));
-        assert_eq!(
-            eval(Expression::Sexp(vec![Expression::Num(1_f64)])),
-            Expression::Num(1_f64)
-        );
+        assert_eq!(eval(Lval::Num(1_f64)), Lval::Num(1_f64));
+        assert_eq!(eval(Lval::Sexpr(vec![Lval::Num(1_f64)])), Lval::Num(1_f64));
     }
 
     #[test]
     fn it_handles_singular_symbols() {
         assert_eq!(
-            eval(Expression::Sym(String::from("*"))),
-            Expression::Sym(String::from("*"))
+            eval(Lval::Sym(String::from("*"))),
+            Lval::Sym(String::from("*"))
         );
         assert_eq!(
-            eval(Expression::Sexp(vec![Expression::Sym(String::from("*"))])),
-            Expression::Sym(String::from("*"))
+            eval(Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),
+            Lval::Sym(String::from("*"))
         );
     }
 
     #[test]
     fn it_handles_singular_errors() {
-        let error = Expression::Error(LispError::new(LispErrorType::DivZero));
+        let error = Lval::Error(Lerr::new(LerrType::DivZero));
         assert_eq!(eval(error.clone()), error);
     }
 
     #[test]
     fn it_handles_empty_expressions() {
-        assert_eq!(eval(Expression::Sexp(vec![])), Expression::Sexp(vec![]));
+        assert_eq!(eval(Lval::Sexpr(vec![])), Lval::Sexpr(vec![]));
         assert_eq!(
-            eval(Expression::Sexp(vec![Expression::Sexp(vec![
-                Expression::Sexp(vec![])
-            ])])),
-            Expression::Sexp(vec![])
+            eval(Lval::Sexpr(vec![Lval::Sexpr(vec![Lval::Sexpr(vec![])])])),
+            Lval::Sexpr(vec![])
         );
     }
 
     #[test]
     fn it_uses_operators_properly() {
         assert_eq!(
-            eval(Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+            eval(Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ])),
-            Expression::Num(2_f64)
+            Lval::Num(2_f64)
         );
         assert_eq!(
-            eval(Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
+            eval(Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
             ])),
-            Expression::Error(LispError::new(LispErrorType::BadNum))
+            Lval::Error(Lerr::new(LerrType::BadNum))
         );
         assert_eq!(
-            eval(Expression::Sexp(vec![
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+            eval(Lval::Sexpr(vec![
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ])),
-            Expression::Error(LispError::new(LispErrorType::BadOp))
+            Lval::Error(Lerr::new(LerrType::BadOp))
         );
     }
 
     #[test]
     fn it_handles_nested_sexpressions() {
         assert_eq!(
-            eval(Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+            eval(Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ]),
             ])),
-            Expression::Num(3_f64)
+            Lval::Num(3_f64)
         );
     }
 }

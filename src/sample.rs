@@ -84,8 +84,8 @@ impl Sample {
             let ast = match crate::parser::parse(&line) {
                 Ok(tup) => tup.1,
                 Err(e) => {
-                    println!("Could not parse expression! {}", e);
-                    crate::Expression::Num(0_f64)
+                    println!("Could not parse Lval! {}", e);
+                    crate::Lval::Num(0_f64)
                 }
             };
             // println!("{:?}", ast);

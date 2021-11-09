@@ -1,6 +1,6 @@
-use crate::{eval, is_qexp, to_num, Expression, LispError, LispErrorType};
+use crate::{eval, is_qexpr, to_num, Lerr, LerrType, Lval};
 
-pub fn builtin(sym: &str, operands: Vec<Expression>) -> Expression {
+pub fn builtin(sym: &str, operands: Vec<Lval>) -> Lval {
     match sym {
         "head" => builtin_head(operands),
         "tail" => builtin_tail(operands),
@@ -11,21 +11,21 @@ pub fn builtin(sym: &str, operands: Vec<Expression>) -> Expression {
     }
 }
 
-fn builtin_op(sym: &str, operands: Vec<Expression>) -> Expression {
+fn builtin_op(sym: &str, operands: Vec<Lval>) -> Lval {
     // flatten down the numbers
     let results: Option<Vec<f64>> = operands.iter().map(to_num).collect();
     // kick out anything thats not a number
     let operands = match results {
         Some(operands) => operands,
-        None => return Expression::Error(LispError::new(LispErrorType::BadNum)),
+        None => return Lval::Error(Lerr::new(LerrType::BadNum)),
     };
 
     // handle unary functions
     if operands.len() == 1 {
         if "-" == sym {
-            return Expression::Num(-operands[0]);
+            return Lval::Num(-operands[0]);
         } else {
-            return Expression::Num(operands[0]);
+            return Lval::Num(operands[0]);
         }
     }
 
@@ -40,7 +40,7 @@ fn builtin_op(sym: &str, operands: Vec<Expression>) -> Expression {
             "*" => x *= y,
             "/" => {
                 if y == 0_f64 {
-                    return Expression::Error(LispError::new(LispErrorType::DivZero));
+                    return Lval::Error(Lerr::new(LerrType::DivZero));
                 } else {
                     x /= y;
                 }
@@ -50,93 +50,93 @@ fn builtin_op(sym: &str, operands: Vec<Expression>) -> Expression {
         i += 1;
     }
 
-    Expression::Num(x)
+    Lval::Num(x)
 }
 
-fn builtin_head(operands: Vec<Expression>) -> Expression {
+fn builtin_head(operands: Vec<Lval>) -> Lval {
     // we want only one arguement
     if operands.len() != 1 {
-        return Expression::Error(LispError::new(LispErrorType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
     }
 
     let arg = &operands[0];
     match arg {
-        Expression::Qexp(qexpr) => {
+        Lval::Qexpr(qexpr) => {
             if qexpr.len() == 0 {
-                Expression::Error(LispError::new(LispErrorType::EmptyList))
+                Lval::Error(Lerr::new(LerrType::EmptyList))
             } else {
                 qexpr[0].clone()
             }
         }
-        _ => Expression::Error(LispError::new(LispErrorType::WrongType)),
+        _ => Lval::Error(Lerr::new(LerrType::WrongType)),
     }
 }
 
-fn builtin_tail(operands: Vec<Expression>) -> Expression {
+fn builtin_tail(operands: Vec<Lval>) -> Lval {
     // we want only one arguement
     if operands.len() != 1 {
-        return Expression::Error(LispError::new(LispErrorType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
     }
 
     let arg = &operands[0];
     // need a list/qexpr to work with
     match arg {
-        Expression::Qexp(qexpr) => {
+        Lval::Qexpr(qexpr) => {
             if qexpr.len() == 0 {
-                Expression::Error(LispError::new(LispErrorType::EmptyList))
+                Lval::Error(Lerr::new(LerrType::EmptyList))
             } else {
-                Expression::Qexp(qexpr[1..].to_vec())
+                Lval::Qexpr(qexpr[1..].to_vec())
             }
         }
-        _ => Expression::Error(LispError::new(LispErrorType::WrongType)),
+        _ => Lval::Error(Lerr::new(LerrType::WrongType)),
     }
 }
 
-fn builtin_list(operands: Vec<Expression>) -> Expression {
-    Expression::Qexp(operands)
+fn builtin_list(operands: Vec<Lval>) -> Lval {
+    Lval::Qexpr(operands)
 }
 
-fn builtin_eval(operands: Vec<Expression>) -> Expression {
+fn builtin_eval(operands: Vec<Lval>) -> Lval {
     // we only want to evaluate one arguement
     if operands.len() != 1 {
-        return Expression::Error(LispError::new(LispErrorType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
     }
 
     let arg = &operands[0];
-    if let Expression::Qexp(qexpr) = arg {
-        eval::eval(Expression::Sexp(qexpr[..].to_vec()))
+    if let Lval::Qexpr(qexpr) = arg {
+        eval::eval(Lval::Sexpr(qexpr[..].to_vec()))
     } else {
         eval::eval(arg.clone())
     }
 }
 
-fn builtin_join(operands: Vec<Expression>) -> Expression {
+fn builtin_join(operands: Vec<Lval>) -> Lval {
     // need at least 2 arguements
     if operands.len() < 2 {
-        return Expression::Error(LispError::new(LispErrorType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
     }
 
     // needs all arguements to be qexpr
     let results: Vec<bool> = operands
         .iter()
-        .map(is_qexp)
+        .map(is_qexpr)
         .filter(|b| *b == false)
         .collect();
     if results.len() > 0 {
-        return Expression::Error(LispError::new(LispErrorType::WrongType));
+        return Lval::Error(Lerr::new(LerrType::WrongType));
     }
 
     // push each elements from each arguements into one qexpr
     let mut joined = vec![];
     for qexp in operands {
-        if let Expression::Qexp(v) = qexp {
+        if let Lval::Qexpr(v) = qexp {
             for item in v {
                 joined.push(item);
             }
         }
     }
 
-    Expression::Qexp(joined)
+    Lval::Qexpr(joined)
 }
 
 #[cfg(test)]
@@ -145,196 +145,193 @@ mod tests {
 
     #[test]
     fn it_correctly_uses_head() {
-        let expr = Expression::Qexp(vec![
-            Expression::Sym(String::from("+")),
-            Expression::Num(1_f64),
-            Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+        let expr = Lval::Qexpr(vec![
+            Lval::Sym(String::from("+")),
+            Lval::Num(1_f64),
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
         ]);
         assert_eq!(
             builtin_head(vec![expr.clone()]),
-            Expression::Sym(String::from("+"))
+            Lval::Sym(String::from("+"))
         );
         assert_eq!(
             builtin_head(vec![]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_head(vec![Expression::Sym(String::from("+"))]),
-            Expression::Error(LispError::new(LispErrorType::WrongType))
+            builtin_head(vec![Lval::Sym(String::from("+"))]),
+            Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
-            builtin_head(vec![Expression::Qexp(vec![])]),
-            Expression::Error(LispError::new(LispErrorType::EmptyList))
+            builtin_head(vec![Lval::Qexpr(vec![])]),
+            Lval::Error(Lerr::new(LerrType::EmptyList))
         );
     }
 
     #[test]
     fn it_correctly_uses_tail() {
-        let expr = Expression::Qexp(vec![
-            Expression::Sym(String::from("+")),
-            Expression::Num(1_f64),
-            Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+        let expr = Lval::Qexpr(vec![
+            Lval::Sym(String::from("+")),
+            Lval::Num(1_f64),
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
         ]);
         assert_eq!(
             builtin_tail(vec![expr.clone()]),
-            Expression::Qexp(vec![
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+            Lval::Qexpr(vec![
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ])
             ])
         );
         assert_eq!(
             builtin_tail(vec![]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_tail(vec![Expression::Sym(String::from("+"))]),
-            Expression::Error(LispError::new(LispErrorType::WrongType))
+            builtin_tail(vec![Lval::Sym(String::from("+"))]),
+            Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
-            builtin_tail(vec![Expression::Qexp(vec![])]),
-            Expression::Error(LispError::new(LispErrorType::EmptyList))
+            builtin_tail(vec![Lval::Qexpr(vec![])]),
+            Lval::Error(Lerr::new(LerrType::EmptyList))
         );
     }
 
     #[test]
     fn it_correctly_uses_list() {
         let expr = vec![
-            Expression::Sym(String::from("+")),
-            Expression::Num(1_f64),
-            Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+            Lval::Sym(String::from("+")),
+            Lval::Num(1_f64),
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
         ];
         assert_eq!(
             builtin_list(expr.clone()),
-            Expression::Qexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+            Lval::Qexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ])
             ])
         );
         assert_eq!(
             builtin_list(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
-            Expression::Qexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+            Lval::Qexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ])
         );
-        assert_eq!(builtin_list(vec![]), Expression::Qexp(vec![]));
+        assert_eq!(builtin_list(vec![]), Lval::Qexpr(vec![]));
         assert_eq!(
-            builtin_list(vec![Expression::Sym(String::from("+"))]),
-            Expression::Qexp(vec![Expression::Sym(String::from("+")),])
+            builtin_list(vec![Lval::Sym(String::from("+"))]),
+            Lval::Qexpr(vec![Lval::Sym(String::from("+")),])
         );
         assert_eq!(
-            builtin_list(vec![Expression::Sexp(vec![])]),
-            Expression::Qexp(vec![Expression::Sexp(vec![]),])
+            builtin_list(vec![Lval::Sexpr(vec![])]),
+            Lval::Qexpr(vec![Lval::Sexpr(vec![]),])
         );
     }
 
     #[test]
     fn it_correctly_uses_eval() {
-        let expr = Expression::Qexp(vec![
-            Expression::Sym(String::from("+")),
-            Expression::Num(1_f64),
-            Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+        let expr = Lval::Qexpr(vec![
+            Lval::Sym(String::from("+")),
+            Lval::Num(1_f64),
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
         ]);
-        assert_eq!(builtin_eval(vec![expr.clone()]), Expression::Num(3_f64));
+        assert_eq!(builtin_eval(vec![expr.clone()]), Lval::Num(3_f64));
         assert_eq!(
             builtin_eval(vec![expr.clone(), expr.clone()]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
             builtin_eval(vec![]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_eval(vec![Expression::Sym(String::from("+"))]),
-            Expression::Sym(String::from("+"))
+            builtin_eval(vec![Lval::Sym(String::from("+"))]),
+            Lval::Sym(String::from("+"))
         );
-        assert_eq!(
-            builtin_eval(vec![Expression::Qexp(vec![])]),
-            Expression::Sexp(vec![])
-        );
+        assert_eq!(builtin_eval(vec![Lval::Qexpr(vec![])]), Lval::Sexpr(vec![]));
     }
 
     #[test]
     fn it_correctly_uses_join() {
-        let expr = Expression::Qexp(vec![
-            Expression::Sym(String::from("+")),
-            Expression::Num(1_f64),
-            Expression::Sexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Num(1_f64),
+        let expr = Lval::Qexpr(vec![
+            Lval::Sym(String::from("+")),
+            Lval::Num(1_f64),
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Num(1_f64),
             ]),
         ]);
         assert_eq!(
             builtin_join(vec![expr.clone(), expr.clone()]),
-            Expression::Qexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+            Lval::Qexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ]),
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ]),
             ])
         );
         assert_eq!(
             builtin_join(vec![expr.clone()]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
             builtin_join(vec![]),
-            Expression::Error(LispError::new(LispErrorType::IncorrectParamCount))
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
         );
         assert_eq!(
-            builtin_join(vec![expr.clone(), Expression::Sym(String::from("+"))]),
-            Expression::Error(LispError::new(LispErrorType::WrongType))
+            builtin_join(vec![expr.clone(), Lval::Sym(String::from("+"))]),
+            Lval::Error(Lerr::new(LerrType::WrongType))
         );
         assert_eq!(
-            builtin_join(vec![expr.clone(), Expression::Qexp(vec![])]),
-            Expression::Qexp(vec![
-                Expression::Sym(String::from("+")),
-                Expression::Num(1_f64),
-                Expression::Sexp(vec![
-                    Expression::Sym(String::from("+")),
-                    Expression::Num(1_f64),
-                    Expression::Num(1_f64),
+            builtin_join(vec![expr.clone(), Lval::Qexpr(vec![])]),
+            Lval::Qexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Num(1_f64),
+                    Lval::Num(1_f64),
                 ]),
             ])
         );

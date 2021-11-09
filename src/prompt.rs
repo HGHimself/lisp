@@ -35,7 +35,7 @@ impl Prompt {
                 Ok(tup) => tup.1,
                 Err(e) => {
                     println!("{}", e);
-                    crate::Expression::Num(0_f64)
+                    crate::Lval::Num(0_f64)
                 }
             };
 
