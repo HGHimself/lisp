@@ -163,6 +163,22 @@ fn to_num(expr: &Lval) -> Option<f64> {
     }
 }
 
+fn to_sym(expr: &Lval) -> Option<String> {
+    if let Lval::Sym(s) = expr {
+        Some(s.clone())
+    } else {
+        None
+    }
+}
+
+fn to_qexpr(expr: &Lval) -> Option<Vec<Lval>> {
+    if let Lval::Qexpr(s) = expr {
+        Some(s.clone())
+    } else {
+        None
+    }
+}
+
 fn is_qexpr(expr: &Lval) -> bool {
     if let Lval::Qexpr(_) = expr {
         true

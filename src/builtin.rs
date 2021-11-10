@@ -1,4 +1,7 @@
-use crate::{add_builtin, eval, init_env, is_qexpr, to_num, Lenv, Lerr, LerrType, Lfun, Lval};
+use crate::{
+    add_builtin, eval, init_env, is_qexpr, to_num, to_qexpr, to_sym, Lenv, Lerr, LerrType, Lfun,
+    Lval,
+};
 
 pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "+", builtin_add);
@@ -11,6 +14,7 @@ pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "list", builtin_list);
     add_builtin(env, "eval", builtin_eval);
     add_builtin(env, "join", builtin_join);
+    add_builtin(env, "def", builtin_def);
 }
 
 fn builtin_op(sym: &str, operands: Vec<Lval>) -> Lval {
@@ -157,11 +161,41 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     Lval::Qexpr(joined)
 }
 
+fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+    // need at least an arguement set and 1 value
+    if operands.len() < 2 {
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+    }
+    // need a param list
+    if is_qexpr(&operands[0]) == false {
+        return Lval::Error(Lerr::new(LerrType::WrongType));
+    }
+
+    // need each argument to be a symbol
+    let results: Option<Vec<String>> = to_qexpr(&operands[0]).unwrap().iter().map(to_sym).collect();
+    let args = match results {
+        None => return Lval::Error(Lerr::new(LerrType::WrongType)),
+        Some(v) => v,
+    };
+
+    // need to have the same number of args and values to assign
+    if args.len() != operands.len() - 1 {
+        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+    }
+
+    // assign each arg to a corresponding value
+    for (i, arg) in args.into_iter().enumerate() {
+        env.insert(arg, operands[i + 1].clone());
+    }
+
+    Lval::Sexpr(vec![])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn empty_fun(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+    fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Lval {
         Lval::Sexpr(vec![])
     }
 
@@ -374,6 +408,72 @@ mod tests {
                     Lval::Num(1_f64),
                 ]),
             ])
+        );
+    }
+
+    #[test]
+    fn it_correctly_uses_define() {
+        let mut env = init_env();
+        assert_eq!(
+            builtin_def(
+                &mut env,
+                vec![
+                    Lval::Qexpr(vec![
+                        Lval::Sym(String::from("a")),
+                        Lval::Sym(String::from("b")),
+                        Lval::Sym(String::from("c"))
+                    ]),
+                    Lval::Num(1_f64),
+                    Lval::Sym(String::from("+")),
+                    Lval::Sexpr(vec![]),
+                ]
+            ),
+            Lval::Sexpr(vec![])
+        );
+        assert_eq!(
+            crate::eval::eval(&mut env, Lval::Sym(String::from("a"))),
+            Lval::Num(1_f64)
+        );
+        assert_eq!(
+            crate::eval::eval(&mut env, Lval::Sym(String::from("b"))),
+            Lval::Sym(String::from("+"))
+        );
+        assert_eq!(
+            crate::eval::eval(&mut env, Lval::Sym(String::from("c"))),
+            Lval::Sexpr(vec![])
+        );
+        assert_eq!(
+            builtin_def(
+                &mut env,
+                vec![Lval::Qexpr(vec![
+                    Lval::Sym(String::from("a")),
+                    Lval::Sym(String::from("b")),
+                    Lval::Sym(String::from("c"))
+                ]),]
+            ),
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+        );
+        assert_eq!(
+            builtin_def(
+                &mut env,
+                vec![
+                    Lval::Qexpr(vec![
+                        Lval::Sym(String::from("a")),
+                        Lval::Sym(String::from("b")),
+                    ]),
+                    Lval::Num(1_f64),
+                    Lval::Sym(String::from("+")),
+                    Lval::Sym(String::from("+")),
+                ]
+            ),
+            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+        );
+        assert_eq!(
+            builtin_def(
+                &mut env,
+                vec![Lval::Qexpr(vec![Lval::Num(1_f64),]), Lval::Num(1_f64),]
+            ),
+            Lval::Error(Lerr::new(LerrType::WrongType))
         );
     }
 }

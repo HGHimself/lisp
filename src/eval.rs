@@ -3,7 +3,6 @@ use crate::{builtin, init_env, to_fun, Lenv, Lerr, LerrType, Lval};
 pub fn eval(env: &mut Lenv, expr: Lval) -> Lval {
     match expr {
         Lval::Sym(s) => eval_symbol(env, s),
-        // Lval::Sym(s) => Lval::Sym(s),
         Lval::Num(_) => expr,
         Lval::Error(_) => expr,
         Lval::Qexpr(_) => expr,
@@ -74,10 +73,10 @@ mod tests {
             eval(&mut env, Lval::Sym(String::from("+"))),
             Lval::Fun(empty_fun)
         );
-        // assert_eq!(
-        //     eval(&mut env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),
-        //     Lval::Sym(String::from("*"))
-        // );
+        assert_eq!(
+            eval(&mut env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),
+            Lval::Fun(empty_fun)
+        );
     }
 
     #[test]
