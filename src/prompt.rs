@@ -34,15 +34,19 @@ impl Prompt {
                 return Ok(());
             }
 
-            let ast = match crate::parser::parse(&line) {
-                Ok(tup) => tup.1,
-                Err(e) => {
-                    println!("{}", e);
-                    crate::Lval::Num(0_f64)
-                }
-            };
-            println!("{:?}", ast);
-            println!("{:?}", crate::eval::eval(&mut env, ast));
+            if line == "env" {
+                println!("{:#?}", env);
+            } else {
+                let ast = match crate::parser::parse(&line) {
+                    Ok(tup) => tup.1,
+                    Err(e) => {
+                        println!("{}", e);
+                        crate::Lval::Num(0_f64)
+                    }
+                };
+                // println!("{:?}", ast);
+                println!("{:?}", crate::eval::eval(&mut env, ast));
+            }
 
             interface.add_history_unique(line);
         }

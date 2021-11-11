@@ -1,6 +1,5 @@
 use crate::{
-    add_builtin, eval, init_env, is_qexpr, to_num, to_qexpr, to_sym, Lenv, Lerr, LerrType, Lfun,
-    Lval,
+    add_builtin, eval, is_qexpr, to_num, to_qexpr, to_sym, Lenv, Lerr, LerrType, Llambda, Lval,
 };
 
 pub fn init_builtins(env: &mut Lenv) {
@@ -14,6 +13,7 @@ pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "list", builtin_list);
     add_builtin(env, "eval", builtin_eval);
     add_builtin(env, "join", builtin_join);
+    add_builtin(env, "\\", builtin_lambda);
     add_builtin(env, "def", builtin_def);
 }
 
@@ -23,7 +23,12 @@ fn builtin_op(sym: &str, operands: Vec<Lval>) -> Lval {
     // kick out anything thats not a number
     let operands = match results {
         Some(operands) => operands,
-        None => return Lval::Error(Lerr::new(LerrType::BadNum)),
+        None => {
+            return Lval::Error(Lerr::new(
+                LerrType::BadNum,
+                format!("Function {} can operate only on numbers", sym),
+            ))
+        }
     };
 
     // handle unary functions
@@ -46,7 +51,10 @@ fn builtin_op(sym: &str, operands: Vec<Lval>) -> Lval {
             "*" => x *= y,
             "/" => {
                 if y == 0_f64 {
-                    return Lval::Error(Lerr::new(LerrType::DivZero));
+                    return Lval::Error(Lerr::new(
+                        LerrType::DivZero,
+                        format!("You cannot divide {}, or any number, by 0", x),
+                    ));
                 } else {
                     x /= y;
                 }
@@ -78,26 +86,44 @@ fn builtin_div(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 fn builtin_head(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     // we want only one arguement
     if operands.len() != 1 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function head needed 1 arg but was given {}",
+                operands.len()
+            ),
+        ));
     }
 
     let arg = &operands[0];
     match arg {
         Lval::Qexpr(qexpr) => {
             if qexpr.len() == 0 {
-                Lval::Error(Lerr::new(LerrType::EmptyList))
+                Lval::Error(Lerr::new(
+                    LerrType::EmptyList,
+                    format!("Function head was given empty list"),
+                ))
             } else {
-                qexpr[0].clone()
+                Lval::Qexpr(vec![qexpr[0].clone()])
             }
         }
-        _ => Lval::Error(Lerr::new(LerrType::WrongType)),
+        _ => Lval::Error(Lerr::new(
+            LerrType::WrongType,
+            format!("Function head needed Qexpr but was given {:?}", arg),
+        )),
     }
 }
 
 fn builtin_tail(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     // we want only one arguement
     if operands.len() != 1 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function tail needed 1 arg but was given {}",
+                operands.len()
+            ),
+        ));
     }
 
     let arg = &operands[0];
@@ -105,12 +131,18 @@ fn builtin_tail(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     match arg {
         Lval::Qexpr(qexpr) => {
             if qexpr.len() == 0 {
-                Lval::Error(Lerr::new(LerrType::EmptyList))
+                Lval::Error(Lerr::new(
+                    LerrType::EmptyList,
+                    format!("Function tail was given empty list"),
+                ))
             } else {
                 Lval::Qexpr(qexpr[1..].to_vec())
             }
         }
-        _ => Lval::Error(Lerr::new(LerrType::WrongType)),
+        _ => Lval::Error(Lerr::new(
+            LerrType::WrongType,
+            format!("Function tail needed Qexpr but was given {:?}", arg),
+        )),
     }
 }
 
@@ -121,7 +153,13 @@ fn builtin_list(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 fn builtin_eval(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     // we only want to evaluate one arguement
     if operands.len() != 1 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function eval needed 1 arg but was given {}",
+                operands.len()
+            ),
+        ));
     }
 
     let arg = &operands[0];
@@ -135,7 +173,13 @@ fn builtin_eval(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     // need at least 2 arguements
     if operands.len() < 2 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function join needed 2 arg but was given {}",
+                operands.len()
+            ),
+        ));
     }
 
     // needs all arguements to be qexpr
@@ -145,7 +189,10 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
         .filter(|b| *b == false)
         .collect();
     if results.len() > 0 {
-        return Lval::Error(Lerr::new(LerrType::WrongType));
+        return Lval::Error(Lerr::new(
+            LerrType::WrongType,
+            format!("Function join needed Qexpr but was given"),
+        ));
     }
 
     // push each elements from each arguements into one qexpr
@@ -164,23 +211,41 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     // need at least an arguement set and 1 value
     if operands.len() < 2 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!("Function def needed 2 arg but was given {}", operands.len()),
+        ));
     }
     // need a param list
     if is_qexpr(&operands[0]) == false {
-        return Lval::Error(Lerr::new(LerrType::WrongType));
+        return Lval::Error(Lerr::new(
+            LerrType::WrongType,
+            format!("Function def needed Qexpr but was given {:?}", operands[0]),
+        ));
     }
 
     // need each argument to be a symbol
     let results: Option<Vec<String>> = to_qexpr(&operands[0]).unwrap().iter().map(to_sym).collect();
     let args = match results {
-        None => return Lval::Error(Lerr::new(LerrType::WrongType)),
+        None => {
+            return Lval::Error(Lerr::new(
+                LerrType::WrongType,
+                format!("Function def needed a param list of all Symbols"),
+            ))
+        }
         Some(v) => v,
     };
 
     // need to have the same number of args and values to assign
     if args.len() != operands.len() - 1 {
-        return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function def needed to assign {} values but was passed {}",
+                args.len(),
+                operands.len() - 1
+            ),
+        ));
     }
 
     // assign each arg to a corresponding value
@@ -191,9 +256,81 @@ fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     Lval::Sexpr(vec![])
 }
 
+fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+    if operands.len() != 2 {
+        return Lval::Error(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!("Function \\ needed 2 arg but was given {}", operands.len()),
+        ));
+    }
+
+    // needs all arguements to be qexpr
+    let results: Vec<bool> = operands
+        .iter()
+        .map(is_qexpr)
+        .filter(|b| *b == false)
+        .collect();
+    if results.len() > 0 {
+        return Lval::Error(Lerr::new(
+            LerrType::WrongType,
+            format!("Function \\ needed a Qexpr for arguments and a Qexpr for body"),
+        ));
+    }
+
+    // need each argument to be a symbol
+    let results: Option<Vec<String>> = to_qexpr(&operands[0]).unwrap().iter().map(to_sym).collect();
+    let args = match results {
+        None => {
+            return Lval::Error(Lerr::new(
+                LerrType::WrongType,
+                format!("Function \\ needed a param list of all Symbols"),
+            ))
+        }
+        Some(v) => v,
+    };
+
+    let params = args;
+    let body = &operands[1];
+
+    let lambda = Llambda::new(params, to_qexpr(body).unwrap());
+
+    Lval::Lambda(lambda)
+}
+
+// fn builtin_var(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+//     // need at least an arguement set and 1 value
+//     if operands.len() < 2 {
+//         return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+//     }
+//     // need a param list
+//     if is_qexpr(&operands[0]) == false {
+//         return Lval::Error(Lerr::new(LerrType::WrongType));
+//     }
+//
+//     // need each argument to be a symbol
+//     let results: Option<Vec<String>> = to_qexpr(&operands[0]).unwrap().iter().map(to_sym).collect();
+//     let args = match results {
+//         None => return Lval::Error(Lerr::new(LerrType::WrongType)),
+//         Some(v) => v,
+//     };
+//
+//     // need to have the same number of args and values to assign
+//     if args.len() != operands.len() - 1 {
+//         return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
+//     }
+//
+//     // assign each arg to a corresponding value
+//     for (i, arg) in args.into_iter().enumerate() {
+//         env.insert(arg, operands[i + 1].clone());
+//     }
+//
+//     Lval::Sexpr(vec![])
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{init_env, to_err};
 
     fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Lval {
         Lval::Sexpr(vec![])
@@ -213,19 +350,23 @@ mod tests {
         ]);
         assert_eq!(
             builtin_head(&mut env, vec![expr.clone()]),
-            Lval::Sym(String::from("+"))
+            Lval::Qexpr(vec![Lval::Sym(String::from("+"))])
         );
         assert_eq!(
-            builtin_head(&mut env, vec![]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_head(&mut env, vec![])).unwrap().etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_head(&mut env, vec![Lval::Sym(String::from("+"))]),
-            Lval::Error(Lerr::new(LerrType::WrongType))
+            to_err(&builtin_head(&mut env, vec![Lval::Sym(String::from("+"))]))
+                .unwrap()
+                .etype,
+            LerrType::WrongType
         );
         assert_eq!(
-            builtin_head(&mut env, vec![Lval::Qexpr(vec![])]),
-            Lval::Error(Lerr::new(LerrType::EmptyList))
+            to_err(&builtin_head(&mut env, vec![Lval::Qexpr(vec![])]))
+                .unwrap()
+                .etype,
+            LerrType::EmptyList
         );
     }
 
@@ -253,16 +394,20 @@ mod tests {
             ])
         );
         assert_eq!(
-            builtin_tail(&mut env, vec![]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_tail(&mut env, vec![])).unwrap().etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_tail(&mut env, vec![Lval::Sym(String::from("+"))]),
-            Lval::Error(Lerr::new(LerrType::WrongType))
+            to_err(&builtin_tail(&mut env, vec![Lval::Sym(String::from("+"))]))
+                .unwrap()
+                .etype,
+            LerrType::WrongType
         );
         assert_eq!(
-            builtin_tail(&mut env, vec![Lval::Qexpr(vec![])]),
-            Lval::Error(Lerr::new(LerrType::EmptyList))
+            to_err(&builtin_tail(&mut env, vec![Lval::Qexpr(vec![])]))
+                .unwrap()
+                .etype,
+            LerrType::EmptyList
         );
     }
 
@@ -330,12 +475,14 @@ mod tests {
         ]);
         assert_eq!(builtin_eval(&mut env, vec![expr.clone()]), Lval::Num(3_f64));
         assert_eq!(
-            builtin_eval(&mut env, vec![expr.clone(), expr.clone()]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_eval(&mut env, vec![expr.clone(), expr.clone()]))
+                .unwrap()
+                .etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_eval(&mut env, vec![])).unwrap().etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
             builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
@@ -386,16 +533,23 @@ mod tests {
             ])
         );
         assert_eq!(
-            builtin_join(&mut env, vec![expr.clone()]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_join(&mut env, vec![expr.clone()]))
+                .unwrap()
+                .etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_join(&mut env, vec![]),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            to_err(&builtin_join(&mut env, vec![])).unwrap().etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_join(&mut env, vec![expr.clone(), Lval::Sym(String::from("+"))]),
-            Lval::Error(Lerr::new(LerrType::WrongType))
+            to_err(&builtin_join(
+                &mut env,
+                vec![expr.clone(), Lval::Sym(String::from("+"))]
+            ))
+            .unwrap()
+            .etype,
+            LerrType::WrongType
         );
         assert_eq!(
             builtin_join(&mut env, vec![expr.clone(), Lval::Qexpr(vec![])]),
@@ -443,18 +597,20 @@ mod tests {
             Lval::Sexpr(vec![])
         );
         assert_eq!(
-            builtin_def(
+            to_err(&builtin_def(
                 &mut env,
                 vec![Lval::Qexpr(vec![
                     Lval::Sym(String::from("a")),
                     Lval::Sym(String::from("b")),
                     Lval::Sym(String::from("c"))
                 ]),]
-            ),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            ))
+            .unwrap()
+            .etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_def(
+            to_err(&builtin_def(
                 &mut env,
                 vec![
                     Lval::Qexpr(vec![
@@ -465,15 +621,19 @@ mod tests {
                     Lval::Sym(String::from("+")),
                     Lval::Sym(String::from("+")),
                 ]
-            ),
-            Lval::Error(Lerr::new(LerrType::IncorrectParamCount))
+            ))
+            .unwrap()
+            .etype,
+            LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_def(
+            to_err(&builtin_def(
                 &mut env,
                 vec![Lval::Qexpr(vec![Lval::Num(1_f64),]), Lval::Num(1_f64),]
-            ),
-            Lval::Error(Lerr::new(LerrType::WrongType))
+            ))
+            .unwrap()
+            .etype,
+            LerrType::WrongType
         );
     }
 }
