@@ -69,21 +69,25 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Lval {
             ));
         }
 
-        let sym = func.args.pop().unwrap();
+        let sym = func.args[0].clone();
+        func.args = func.args[1..].to_vec();
 
-        if sym == "&" {
+        if sym == ":" {
             if func.args.len() != 1 {
                 return Lval::Error(Lerr::new(
                     LerrType::IncorrectParamCount,
-                    format!("& operator needs to be followed by arg"),
+                    format!(": operator needs to be followed by arg"),
                 ));
             }
 
-            let sym = func.args.pop().unwrap();
+            let sym = func.args[0].clone();
+            func.args = func.args[1..].to_vec();
             func.env.insert(&sym, Lval::Qexpr(args));
+
             break;
         } else {
-            let val = args.pop().unwrap();
+            let val = args[0].clone();
+            args = args[1..].to_vec();
             func.env.insert(&sym, val);
         }
     }

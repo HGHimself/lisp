@@ -121,6 +121,7 @@ impl Lerr {
             LerrType::WrongType => "Incorrect Data Type used",
             LerrType::EmptyList => "Empty List passed to function",
             LerrType::UnboundSymbol => "This Symbol has not been Defined",
+            LerrType::Interrupt => "The program is exiting",
         };
 
         Lerr {
@@ -152,6 +153,7 @@ pub enum LerrType {
     EmptyList,
     WrongType,
     UnboundSymbol,
+    Interrupt,
 }
 
 #[derive(Clone)]

@@ -15,6 +15,7 @@ pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "join", builtin_join);
     add_builtin(env, "\\", builtin_lambda);
     add_builtin(env, "def", builtin_def);
+    add_builtin(env, "die", builtin_exit);
 }
 
 fn builtin_op(sym: &str, operands: Vec<Lval>) -> Lval {
@@ -81,6 +82,13 @@ fn builtin_mul(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 
 fn builtin_div(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     builtin_op("/", operands)
+}
+
+fn builtin_exit(_env: &mut Lenv, _operands: Vec<Lval>) -> Lval {
+    Lval::Error(Lerr::new(
+        LerrType::Interrupt,
+        String::from("The thread of execution has been interrupted"),
+    ))
 }
 
 fn builtin_head(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
