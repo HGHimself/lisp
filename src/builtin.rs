@@ -254,7 +254,7 @@ fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 
     // assign each arg to a corresponding value
     for (i, arg) in args.into_iter().enumerate() {
-        env.insert(&arg, operands[i + 1].clone());
+        env.insert_last(&arg, operands[i + 1].clone());
     }
 
     Lval::Sexpr(vec![])
@@ -293,7 +293,9 @@ fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
         Some(v) => v,
     };
 
+    // we reverse these so that we can pop off the back in the call func
     let params = args;
+    //.into_iter().rev().collect();
     let body = &operands[1];
 
     let lambda = Llambda::new(params, to_qexpr(body).unwrap());

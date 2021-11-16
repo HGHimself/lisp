@@ -70,9 +70,22 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Lval {
         }
 
         let sym = func.args.pop().unwrap();
-        let val = args.pop().unwrap();
 
-        func.env.insert(&sym, val);
+        if sym == "&" {
+            if func.args.len() != 1 {
+                return Lval::Error(Lerr::new(
+                    LerrType::IncorrectParamCount,
+                    format!("& operator needs to be followed by arg"),
+                ));
+            }
+
+            let sym = func.args.pop().unwrap();
+            func.env.insert(&sym, Lval::Qexpr(args));
+            break;
+        } else {
+            let val = args.pop().unwrap();
+            func.env.insert(&sym, val);
+        }
     }
 
     if func.args.len() == 0 {

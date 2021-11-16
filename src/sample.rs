@@ -10,9 +10,7 @@ pub struct Sample {}
 
 impl Sample {
     pub fn run(self) {
-        let line = "+ 2 2
-        ";
-        // let line = "* 9 9";
+        let line = "* 9 9";
         ALLOCATOR.set_active(true);
         {
             let ast = match crate::parser::parse(&line) {
