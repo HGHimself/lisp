@@ -22,7 +22,7 @@ impl Sample {
             };
             // println!("{:?}", ast);
             let mut env = crate::init_env();
-            crate::eval::eval(&mut env, ast);
+            crate::eval::eval(&mut env, ast).expect("Seems to have errored");
         }
         ALLOCATOR.set_active(false);
     }

@@ -37,7 +37,7 @@ fn parse_symbol(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
             multispace0,
             many1(map(
                 one_of(
-                    "_+\\:-*/=<>!&%abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                    "_+\\:-*/=<>|!&%abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
                 ),
                 |c| format!("{}", c),
             )),

@@ -7,7 +7,7 @@ pub mod report;
 pub mod sample;
 
 use crate::builtin::init_builtins;
-use std::{collections::HashMap, error::Error, fmt, iter::FromIterator};
+use std::{collections::HashMap, error::Error, fmt};
 
 #[derive(Clone)]
 pub enum Lval {
@@ -15,7 +15,6 @@ pub enum Lval {
     Num(f64),
     Sexpr(Vec<Lval>),
     Qexpr(Vec<Lval>),
-    Error(Lerr),
     Fun(Lfun),
     Lambda(Llambda),
 }
@@ -39,10 +38,6 @@ impl PartialEq for Lval {
                 Lval::Qexpr(b) => a == b,
                 _ => false,
             },
-            Lval::Error(a) => match other {
-                Lval::Error(b) => a == b,
-                _ => false,
-            },
             Lval::Fun(_) => match other {
                 Lval::Fun(_) => true,
                 _ => false,
@@ -62,26 +57,9 @@ impl fmt::Debug for Lval {
             Lval::Num(n) => write!(f, "Num::{}", n),
             Lval::Sexpr(s) => write!(f, "Sexpr::{:?}", s),
             Lval::Qexpr(q) => write!(f, "Qexpr::{:?}", q),
-            Lval::Error(e) => write!(f, "Error::{:?}", e),
             Lval::Fun(_) => write!(f, "Fun"),
             Lval::Lambda(l) => write!(f, "Lambda::{{args:{:?}, body:{:?}}}", l.args, l.body),
         }
-    }
-}
-
-// FromIterator<Lval>` is not implemented for `Result<Vec<Lval>, _>
-impl FromIterator<Lval> for Result<Vec<Lval>, Lerr> {
-    fn from_iter<I: IntoIterator<Item = Lval>>(iter: I) -> Self {
-        let mut c = vec![];
-
-        for i in iter {
-            match i {
-                Lval::Error(e) => return Err(e),
-                _ => c.push(i),
-            }
-        }
-
-        Ok(c)
     }
 }
 
@@ -257,7 +235,7 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Lval;
+pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Result<Lval, Lerr>;
 
 pub fn init_env() -> Lenv {
     let mut env = Lenv::new();
@@ -270,23 +248,15 @@ pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
     env.insert(sym, Lval::Fun(fun));
 }
 
-fn is_qexpr(expr: &Lval) -> bool {
-    if let Lval::Qexpr(_) = expr {
-        true
-    } else {
-        false
-    }
-}
-
-fn to_num(expr: &Lval) -> Option<f64> {
+fn to_num(expr: Lval) -> Option<f64> {
     if let Lval::Num(n) = expr {
-        Some(*n)
+        Some(n)
     } else {
         None
     }
 }
 
-fn to_sym(expr: &Lval) -> Option<String> {
+fn to_sym(expr: Lval) -> Option<String> {
     if let Lval::Sym(s) = expr {
         Some(s.clone())
     } else {
@@ -294,7 +264,7 @@ fn to_sym(expr: &Lval) -> Option<String> {
     }
 }
 
-fn to_qexpr(expr: &Lval) -> Option<Vec<Lval>> {
+fn to_qexpr(expr: Lval) -> Option<Vec<Lval>> {
     if let Lval::Qexpr(s) = expr {
         Some(s.clone())
     } else {
@@ -302,25 +272,9 @@ fn to_qexpr(expr: &Lval) -> Option<Vec<Lval>> {
     }
 }
 
-fn to_fun(expr: &Lval) -> Option<Lfun> {
-    if let Lval::Fun(s) = expr {
-        Some(*s)
-    } else {
-        None
-    }
-}
-
+#[cfg(test)]
 fn to_lambda(expr: &Lval) -> Option<Llambda> {
     if let Lval::Lambda(s) = expr {
-        Some(s.clone())
-    } else {
-        None
-    }
-}
-
-#[cfg(test)]
-fn to_err(expr: &Lval) -> Option<Lerr> {
-    if let Lval::Error(s) = expr {
         Some(s.clone())
     } else {
         None

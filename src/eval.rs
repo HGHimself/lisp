@@ -1,69 +1,57 @@
-use crate::{to_fun, to_lambda, Lenv, Lerr, LerrType, Llambda, Lval};
+use crate::{Lenv, Lerr, LerrType, Llambda, Lval};
 
-pub fn eval(env: &mut Lenv, expr: Lval) -> Lval {
+pub fn eval(env: &mut Lenv, expr: Lval) -> Result<Lval, Lerr> {
     match expr {
         Lval::Sym(s) => eval_symbol(env, s),
-        Lval::Num(_) => expr,
-        Lval::Error(_) => expr,
-        Lval::Qexpr(_) => expr,
-        Lval::Fun(_) => expr,
-        Lval::Lambda(_) => expr,
         Lval::Sexpr(vec) => eval_sexpression(env, vec),
+        _ => Ok(expr),
     }
 }
 
-fn eval_symbol(env: &mut Lenv, s: String) -> Lval {
-    let key = s.to_string();
-    match env.get(&key) {
-        Some(lval) => lval.clone(),
-        None => Lval::Error(Lerr::new(
+fn eval_symbol(env: &mut Lenv, s: String) -> Result<Lval, Lerr> {
+    match env.get(&s) {
+        Some(lval) => Ok(lval.clone()),
+        None => Err(Lerr::new(
             LerrType::UnboundSymbol,
-            format!("{:?} has not been defined", key),
+            format!("{:?} has not been defined", s),
         )),
     }
 }
 
-fn eval_sexpression(env: &mut Lenv, sexpr: Vec<Lval>) -> Lval {
+fn eval_sexpression(env: &mut Lenv, sexpr: Vec<Lval>) -> Result<Lval, Lerr> {
     // evaluate each element
-    let results: Result<Vec<Lval>, Lerr> = sexpr.into_iter().map(|expr| eval(env, expr)).collect();
-    // surface any errors
-    let sexpr = match results {
-        Ok(sexpr) => sexpr,
-        Err(e) => return Lval::Error(e),
-    };
+    let results = sexpr
+        .into_iter()
+        .map(|expr| eval(env, expr))
+        .collect::<Result<Vec<Lval>, Lerr>>()?;
 
-    if sexpr.len() == 0 {
+    if results.len() == 0 {
         // if empty return empty
-        return Lval::Sexpr(sexpr);
-    } else if sexpr.len() == 1 {
+        return Ok(Lval::Sexpr(results));
+    } else if results.len() == 1 {
         // if singular value return singular value
-        return sexpr[0].clone();
+        return Ok(results[0].clone());
     } else {
-        let operands = (&sexpr[1..]).to_vec();
-        // else let's try to calculate
-        if let Some(fun) = to_fun(&sexpr[0]) {
-            // builtin
-            return fun(env, operands);
-        } else if let Some(lambda) = to_lambda(&sexpr[0]) {
-            // lambda
-            return call(env, lambda, operands);
-        } else {
-            // we needed an operator for the first element to calculate
-            return Lval::Error(Lerr::new(
+        let operands = (&results[1..]).to_vec();
+        // recognize a builtin function or a lambda
+        match results[0].clone() {
+            Lval::Fun(fun) => fun(env, operands),
+            Lval::Lambda(lambda) => call(env, lambda, operands),
+            _ => Err(Lerr::new(
                 LerrType::BadOp,
-                format!("{:?} is not a valid operator", sexpr[0]),
-            ));
+                format!("{:?} is not a valid operator", results[0]),
+            )),
         }
     }
 }
 
-pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Lval {
+pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Result<Lval, Lerr> {
     let given = args.len();
     let total = func.args.len();
 
     while args.len() != 0 {
         if func.args.len() == 0 {
-            return Lval::Error(Lerr::new(
+            return Err(Lerr::new(
                 LerrType::IncorrectParamCount,
                 format!("Function needed {} args but was given {}", total, given),
             ));
@@ -74,7 +62,7 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Lval {
 
         if sym == ":" {
             if func.args.len() != 1 {
-                return Lval::Error(Lerr::new(
+                return Err(Lerr::new(
                     LerrType::IncorrectParamCount,
                     format!(": operator needs to be followed by arg"),
                 ));
@@ -98,25 +86,25 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Lval {
         env.pop();
         res
     } else {
-        Lval::Lambda(func)
+        Ok(Lval::Lambda(func))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{init_env, to_err};
+    use crate::{init_env, to_lambda};
 
-    fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Lval {
-        Lval::Sexpr(vec![])
+    fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Result<Lval, Lerr> {
+        Ok(Lval::Sexpr(vec![]))
     }
 
     #[test]
     fn it_handles_singular_numbers() {
         let env = &mut init_env();
-        assert_eq!(eval(env, Lval::Num(1_f64)), Lval::Num(1_f64));
+        assert_eq!(eval(env, Lval::Num(1_f64)).unwrap(), Lval::Num(1_f64));
         assert_eq!(
-            eval(env, Lval::Sexpr(vec![Lval::Num(1_f64)])),
+            eval(env, Lval::Sexpr(vec![Lval::Num(1_f64)])).unwrap(),
             Lval::Num(1_f64)
         );
     }
@@ -125,34 +113,35 @@ mod tests {
     fn it_handles_singular_symbols() {
         let env = &mut init_env();
         assert_eq!(
-            eval(env, Lval::Sym(String::from("+"))),
+            eval(env, Lval::Sym(String::from("+"))).unwrap(),
             Lval::Fun(empty_fun)
         );
         assert_eq!(
-            eval(env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])),
+            eval(env, Lval::Sexpr(vec![Lval::Sym(String::from("*"))])).unwrap(),
             Lval::Fun(empty_fun)
         );
     }
 
-    #[test]
-    fn it_handles_singular_errors() {
-        let env = &mut init_env();
-        let error = Lval::Error(Lerr::new(LerrType::DivZero, String::from("")));
-        assert_eq!(
-            to_err(&eval(env, error.clone())).unwrap().etype,
-            LerrType::DivZero
-        );
-    }
+    // #[test]
+    // fn it_handles_singular_errors() {
+    //     let env = &mut init_env();
+    //     let error = Lval::Error(Lerr::new(LerrType::DivZero, String::from("")));
+    //     assert_eq!(
+    //         to_err(&eval(env, error.clone())).unwrap().etype,
+    //         LerrType::DivZero
+    //     );
+    // }
 
     #[test]
     fn it_handles_empty_expressions() {
         let env = &mut init_env();
-        assert_eq!(eval(env, Lval::Sexpr(vec![])), Lval::Sexpr(vec![]));
+        assert_eq!(eval(env, Lval::Sexpr(vec![])).unwrap(), Lval::Sexpr(vec![]));
         assert_eq!(
             eval(
                 env,
                 Lval::Sexpr(vec![Lval::Sexpr(vec![Lval::Sexpr(vec![])])])
-            ),
+            )
+            .unwrap(),
             Lval::Sexpr(vec![])
         );
     }
@@ -168,31 +157,24 @@ mod tests {
                     Lval::Num(1_f64),
                     Lval::Num(1_f64),
                 ])
-            ),
+            )
+            .unwrap(),
             Lval::Num(2_f64)
         );
-        assert_eq!(
-            to_err(&eval(
-                env,
-                Lval::Sexpr(vec![
-                    Lval::Sym(String::from("+")),
-                    Lval::Sym(String::from("+")),
-                    Lval::Num(1_f64),
-                ])
-            ))
-            .unwrap()
-            .etype,
-            LerrType::BadNum
-        );
-        assert_eq!(
-            to_err(&eval(
-                env,
-                Lval::Sexpr(vec![Lval::Num(1_f64), Lval::Num(1_f64), Lval::Num(1_f64),])
-            ))
-            .unwrap()
-            .etype,
-            LerrType::BadOp
-        );
+        let _ = eval(
+            env,
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("+")),
+                Lval::Sym(String::from("+")),
+                Lval::Num(1_f64),
+            ]),
+        )
+        .map_err(|err| assert_eq!(err.etype, LerrType::BadNum));
+        let _ = eval(
+            env,
+            Lval::Sexpr(vec![Lval::Num(1_f64), Lval::Num(1_f64), Lval::Num(1_f64)]),
+        )
+        .map_err(|err| assert_eq!(err.etype, LerrType::BadOp));
     }
 
     #[test]
@@ -210,7 +192,8 @@ mod tests {
                         Lval::Num(1_f64),
                     ]),
                 ])
-            ),
+            )
+            .unwrap(),
             Lval::Num(3_f64)
         );
     }
@@ -226,7 +209,10 @@ mod tests {
                 Lval::Sym(String::from("a")),
             ],
         );
-        assert_eq!(call(env, lambda, vec![Lval::Num(5_f64)]), Lval::Num(10_f64));
+        assert_eq!(
+            call(env, lambda, vec![Lval::Num(5_f64)]).unwrap(),
+            Lval::Num(10_f64)
+        );
 
         let lambda = Llambda::new(
             vec![String::from("a"), String::from("b")],
@@ -236,9 +222,9 @@ mod tests {
                 Lval::Sym(String::from("a")),
             ],
         );
-        let new_lambda = call(env, lambda, vec![Lval::Num(15_f64)]);
+        let new_lambda = call(env, lambda, vec![Lval::Num(15_f64)]).unwrap();
         assert_eq!(
-            call(env, to_lambda(&new_lambda).unwrap(), vec![Lval::Num(5_f64)]),
+            call(env, to_lambda(&new_lambda).unwrap(), vec![Lval::Num(5_f64)]).unwrap(),
             Lval::Num(75_f64)
         );
     }
