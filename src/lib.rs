@@ -94,10 +94,12 @@ pub struct Llambda {
 
 impl Llambda {
     fn new(args: Vec<String>, body: Vec<Lval>) -> Self {
+        let mut lenv = Lenv::new();
+        lenv.push(Lookup::new());
         Llambda {
             args,
             body,
-            env: Lenv::new(None),
+            env: lenv,
         }
     }
 }
@@ -152,62 +154,118 @@ pub enum LerrType {
     UnboundSymbol,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Lenv {
-    lookup: HashMap<String, Lval>,
-    parent: Option<Box<Lenv>>,
+    head: LinkedEnv,
+}
+
+type LinkedEnv = Option<Box<Env>>;
+type Lookup = HashMap<String, Lval>;
+
+#[derive(Clone, Debug)]
+pub struct Env {
+    lookup: Lookup,
+    parent: LinkedEnv,
 }
 
 impl Lenv {
-    fn new(parent: Option<Box<Lenv>>) -> Self {
-        Lenv {
-            lookup: HashMap::<String, Lval>::new(),
-            parent,
+    pub fn new() -> Self {
+        Lenv { head: None }
+    }
+
+    pub fn push(&mut self, lookup: Lookup) {
+        let new_env = Box::new(Env {
+            lookup,
+            parent: self.head.take(),
+        });
+
+        self.head = Some(new_env);
+    }
+
+    pub fn pop(&mut self) -> Option<Lookup> {
+        self.head.take().map(|env| {
+            self.head = env.parent;
+            env.lookup
+        })
+    }
+
+    pub fn peek(&self) -> Option<&Lookup> {
+        self.head.as_ref().map(|env| &env.lookup)
+    }
+
+    pub fn peek_mut(&mut self) -> Option<&mut Lookup> {
+        self.head.as_mut().map(|env| &mut env.lookup)
+    }
+
+    pub fn iter(&self) -> Iter<'_> {
+        Iter {
+            next: self.head.as_deref(),
         }
     }
 
-    fn set_parent(&mut self, parent: Box<Lenv>) {
-        self.parent = Some(parent);
+    pub fn insert(&mut self, key: &str, lval: Lval) {
+        self.peek_mut()
+            .map(|node| node.insert(key.to_owned(), lval));
     }
 
-    fn insert(&mut self, k: String, v: Lval) -> Option<Lval> {
-        self.lookup.insert(k, v)
-    }
+    pub fn insert_last(&mut self, key: &str, lval: Lval) {
+        let mut i = self.head.as_mut();
 
-    // fn insert_topmost(&mut self, k: String, v: Lval) -> Option<Lval> {
-    //     let mut current = self;
-    //
-    //     while let Some(p) = current.parent {
-    //         current = p;
-    //     }
-    //
-    //     current.lookup.insert(k, v)
-    // }
-
-    fn get(&self, k: &str) -> Option<&Lval> {
-        let mut env = self;
-        while let None = env.lookup.get(k) {
-            if let Some(p) = &env.parent {
-                env = p;
-            } else {
-                return None;
+        while let Some(env) = i {
+            i = env.parent.as_mut();
+            if let None = i {
+                env.lookup.insert(key.to_owned(), lval.clone());
             }
         }
-        env.lookup.get(k)
+    }
+
+    pub fn get(&self, key: &str) -> Option<Lval> {
+        let mut i = self.iter();
+
+        while let Some(env) = i.next() {
+            if let Some(v) = env.get(key) {
+                return Some(v.clone());
+            }
+        }
+
+        None
+    }
+}
+
+impl Drop for Lenv {
+    fn drop(&mut self) {
+        let mut cur_link = self.head.take();
+        while let Some(mut boxed_env) = cur_link {
+            cur_link = boxed_env.parent.take();
+        }
+    }
+}
+
+pub struct Iter<'a> {
+    next: Option<&'a Env>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Lookup;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|env| {
+            self.next = env.parent.as_deref();
+            &env.lookup
+        })
     }
 }
 
 pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Lval;
 
 pub fn init_env() -> Lenv {
-    let mut env = Lenv::new(None);
+    let mut env = Lenv::new();
+    env.push(Lookup::new());
     init_builtins(&mut env);
     env
 }
 
 pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
-    env.insert(sym.to_string(), Lval::Fun(fun));
-    // env.insert(sym.to_string(), Lval::Num(1_f64));
+    env.insert(sym, Lval::Fun(fun));
 }
 
 fn is_qexpr(expr: &Lval) -> bool {
@@ -258,6 +316,7 @@ fn to_lambda(expr: &Lval) -> Option<Llambda> {
     }
 }
 
+#[cfg(test)]
 fn to_err(expr: &Lval) -> Option<Lerr> {
     if let Lval::Error(s) = expr {
         Some(s.clone())
@@ -272,19 +331,44 @@ mod test {
 
     #[test]
     fn lenv_nests_properly() {
-        let mut env1 = Lenv::new(None);
-        env1.insert(String::from("abc"), Lval::Num(1_f64));
-        env1.insert(String::from("def"), Lval::Num(2_f64));
+        let mut env1 = Lenv::new();
+        env1.push(Lookup::new());
+        env1.insert("abc", Lval::Num(1_f64));
+        env1.insert("def", Lval::Num(2_f64));
 
-        let mut env2 = Lenv::new(Some(Box::new(env1.clone())));
-        env2.insert(String::from("abc"), Lval::Num(3_f64));
-        env2.insert(String::from("ghi"), Lval::Num(4_f64));
+        {
+            let mut env2 = env1.clone();
+            env2.push(Lookup::new());
+            env2.insert("abc", Lval::Num(3_f64));
+            env2.insert("ghi", Lval::Num(4_f64));
 
-        assert_eq!(env2.get("def").unwrap().to_owned(), Lval::Num(2_f64));
-        assert_eq!(env2.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
+            assert_eq!(env2.get("def").unwrap().to_owned(), Lval::Num(2_f64));
+            assert_eq!(env2.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
+        }
 
         assert_eq!(env1.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
         assert_eq!(env1.get("def").unwrap().to_owned(), Lval::Num(2_f64));
         assert_eq!(env1.get("ghi"), None);
+    }
+
+    #[test]
+    fn lenv_inserts_last() {
+        let mut env = Lenv::new();
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(1_f64));
+        env.insert_last("def", Lval::Num(2_f64));
+
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(3_f64));
+        env.insert_last("jkl", Lval::Num(5_f64));
+
+        assert_eq!(env.get("def").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
+        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
+
+        env.pop();
+
+        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
     }
 }

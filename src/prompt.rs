@@ -35,7 +35,7 @@ impl Prompt {
             }
 
             if line == "env" {
-                println!("{:#?}", env);
+                println!("{:#?}", env.peek().unwrap());
             } else {
                 let ast = match crate::parser::parse(&line) {
                     Ok(tup) => tup.1,

@@ -213,9 +213,13 @@ fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     if operands.len() < 2 {
         return Lval::Error(Lerr::new(
             LerrType::IncorrectParamCount,
-            format!("Function def needed 2 arg but was given {}", operands.len()),
+            format!(
+                "Function def needed 2 args but was given {}",
+                operands.len()
+            ),
         ));
     }
+
     // need a param list
     if is_qexpr(&operands[0]) == false {
         return Lval::Error(Lerr::new(
@@ -250,7 +254,7 @@ fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 
     // assign each arg to a corresponding value
     for (i, arg) in args.into_iter().enumerate() {
-        env.insert(arg, operands[i + 1].clone());
+        env.insert(&arg, operands[i + 1].clone());
     }
 
     Lval::Sexpr(vec![])
@@ -297,7 +301,7 @@ fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
     Lval::Lambda(lambda)
 }
 
-// fn builtin_var(env: &mut Lenv, operands: Vec<Lval>) -> Lval {
+// fn builtin_var(env: Lenv, operands: Vec<Lval>) -> Lval {
 //     // need at least an arguement set and 1 value
 //     if operands.len() < 2 {
 //         return Lval::Error(Lerr::new(LerrType::IncorrectParamCount));
@@ -330,7 +334,7 @@ fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Lval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{init_env, to_err};
+    use crate::{init_env, to_err, to_lambda};
 
     fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Lval {
         Lval::Sexpr(vec![])
@@ -338,7 +342,7 @@ mod tests {
 
     #[test]
     fn it_correctly_uses_head() {
-        let mut env = init_env();
+        let env = &mut init_env();
         let expr = Lval::Qexpr(vec![
             Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
@@ -349,21 +353,21 @@ mod tests {
             ]),
         ]);
         assert_eq!(
-            builtin_head(&mut env, vec![expr.clone()]),
+            builtin_head(env, vec![expr.clone()]),
             Lval::Qexpr(vec![Lval::Sym(String::from("+"))])
         );
         assert_eq!(
-            to_err(&builtin_head(&mut env, vec![])).unwrap().etype,
+            to_err(&builtin_head(env, vec![])).unwrap().etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
-            to_err(&builtin_head(&mut env, vec![Lval::Sym(String::from("+"))]))
+            to_err(&builtin_head(env, vec![Lval::Sym(String::from("+"))]))
                 .unwrap()
                 .etype,
             LerrType::WrongType
         );
         assert_eq!(
-            to_err(&builtin_head(&mut env, vec![Lval::Qexpr(vec![])]))
+            to_err(&builtin_head(env, vec![Lval::Qexpr(vec![])]))
                 .unwrap()
                 .etype,
             LerrType::EmptyList
@@ -372,7 +376,7 @@ mod tests {
 
     #[test]
     fn it_correctly_uses_tail() {
-        let mut env = init_env();
+        let env = &mut init_env();
         let expr = Lval::Qexpr(vec![
             Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
@@ -383,7 +387,7 @@ mod tests {
             ]),
         ]);
         assert_eq!(
-            builtin_tail(&mut env, vec![expr.clone()]),
+            builtin_tail(env, vec![expr.clone()]),
             Lval::Qexpr(vec![
                 Lval::Num(1_f64),
                 Lval::Sexpr(vec![
@@ -394,17 +398,17 @@ mod tests {
             ])
         );
         assert_eq!(
-            to_err(&builtin_tail(&mut env, vec![])).unwrap().etype,
+            to_err(&builtin_tail(env, vec![])).unwrap().etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
-            to_err(&builtin_tail(&mut env, vec![Lval::Sym(String::from("+"))]))
+            to_err(&builtin_tail(env, vec![Lval::Sym(String::from("+"))]))
                 .unwrap()
                 .etype,
             LerrType::WrongType
         );
         assert_eq!(
-            to_err(&builtin_tail(&mut env, vec![Lval::Qexpr(vec![])]))
+            to_err(&builtin_tail(env, vec![Lval::Qexpr(vec![])]))
                 .unwrap()
                 .etype,
             LerrType::EmptyList
@@ -413,7 +417,7 @@ mod tests {
 
     #[test]
     fn it_correctly_uses_list() {
-        let mut env = init_env();
+        let env = &mut init_env();
         let expr = vec![
             Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
@@ -424,7 +428,7 @@ mod tests {
             ]),
         ];
         assert_eq!(
-            builtin_list(&mut env, expr.clone()),
+            builtin_list(env, expr.clone()),
             Lval::Qexpr(vec![
                 Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
@@ -437,7 +441,7 @@ mod tests {
         );
         assert_eq!(
             builtin_list(
-                &mut env,
+                env,
                 vec![
                     Lval::Sym(String::from("+")),
                     Lval::Num(1_f64),
@@ -450,20 +454,20 @@ mod tests {
                 Lval::Num(1_f64),
             ])
         );
-        assert_eq!(builtin_list(&mut env, vec![]), Lval::Qexpr(vec![]));
+        assert_eq!(builtin_list(env, vec![]), Lval::Qexpr(vec![]));
         assert_eq!(
-            builtin_list(&mut env, vec![Lval::Sym(String::from("+"))]),
+            builtin_list(env, vec![Lval::Sym(String::from("+"))]),
             Lval::Qexpr(vec![Lval::Sym(String::from("+")),])
         );
         assert_eq!(
-            builtin_list(&mut env, vec![Lval::Sexpr(vec![])]),
+            builtin_list(env, vec![Lval::Sexpr(vec![])]),
             Lval::Qexpr(vec![Lval::Sexpr(vec![]),])
         );
     }
 
     #[test]
     fn it_correctly_uses_eval() {
-        let mut env = init_env();
+        let env = &mut init_env();
         let expr = Lval::Qexpr(vec![
             Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
@@ -473,37 +477,34 @@ mod tests {
                 Lval::Num(1_f64),
             ]),
         ]);
-        assert_eq!(builtin_eval(&mut env, vec![expr.clone()]), Lval::Num(3_f64));
+        assert_eq!(builtin_eval(env, vec![expr.clone()]), Lval::Num(3_f64));
         assert_eq!(
-            to_err(&builtin_eval(&mut env, vec![expr.clone(), expr.clone()]))
+            to_err(&builtin_eval(env, vec![expr.clone(), expr.clone()]))
                 .unwrap()
                 .etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
-            to_err(&builtin_eval(&mut env, vec![])).unwrap().etype,
+            to_err(&builtin_eval(env, vec![])).unwrap().etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![Lval::Sym(String::from("-"))]),
+            builtin_eval(env, vec![Lval::Sym(String::from("-"))]),
             Lval::Fun(empty_fun)
         );
         assert_eq!(
-            builtin_eval(
-                &mut env,
-                vec![Lval::Sexpr(vec![Lval::Sym(String::from("-"))])]
-            ),
+            builtin_eval(env, vec![Lval::Sexpr(vec![Lval::Sym(String::from("-"))])]),
             Lval::Fun(empty_fun)
         );
         assert_eq!(
-            builtin_eval(&mut env, vec![Lval::Qexpr(vec![])]),
+            builtin_eval(env, vec![Lval::Qexpr(vec![])]),
             Lval::Sexpr(vec![])
         );
     }
 
     #[test]
     fn it_correctly_uses_join() {
-        let mut env = init_env();
+        let env = &mut init_env();
         let expr = Lval::Qexpr(vec![
             Lval::Sym(String::from("+")),
             Lval::Num(1_f64),
@@ -514,7 +515,7 @@ mod tests {
             ]),
         ]);
         assert_eq!(
-            builtin_join(&mut env, vec![expr.clone(), expr.clone()]),
+            builtin_join(env, vec![expr.clone(), expr.clone()]),
             Lval::Qexpr(vec![
                 Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
@@ -533,18 +534,18 @@ mod tests {
             ])
         );
         assert_eq!(
-            to_err(&builtin_join(&mut env, vec![expr.clone()]))
+            to_err(&builtin_join(env, vec![expr.clone()]))
                 .unwrap()
                 .etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
-            to_err(&builtin_join(&mut env, vec![])).unwrap().etype,
+            to_err(&builtin_join(env, vec![])).unwrap().etype,
             LerrType::IncorrectParamCount
         );
         assert_eq!(
             to_err(&builtin_join(
-                &mut env,
+                env,
                 vec![expr.clone(), Lval::Sym(String::from("+"))]
             ))
             .unwrap()
@@ -552,7 +553,7 @@ mod tests {
             LerrType::WrongType
         );
         assert_eq!(
-            builtin_join(&mut env, vec![expr.clone(), Lval::Qexpr(vec![])]),
+            builtin_join(env, vec![expr.clone(), Lval::Qexpr(vec![])]),
             Lval::Qexpr(vec![
                 Lval::Sym(String::from("+")),
                 Lval::Num(1_f64),
@@ -567,10 +568,10 @@ mod tests {
 
     #[test]
     fn it_correctly_uses_define() {
-        let mut env = init_env();
+        let env = &mut init_env();
         assert_eq!(
             builtin_def(
-                &mut env,
+                env,
                 vec![
                     Lval::Qexpr(vec![
                         Lval::Sym(String::from("a")),
@@ -585,20 +586,20 @@ mod tests {
             Lval::Sexpr(vec![])
         );
         assert_eq!(
-            crate::eval::eval(&mut env, Lval::Sym(String::from("a"))),
+            crate::eval::eval(env, Lval::Sym(String::from("a"))),
             Lval::Num(1_f64)
         );
         assert_eq!(
-            crate::eval::eval(&mut env, Lval::Sym(String::from("b"))),
+            crate::eval::eval(env, Lval::Sym(String::from("b"))),
             Lval::Sym(String::from("+"))
         );
         assert_eq!(
-            crate::eval::eval(&mut env, Lval::Sym(String::from("c"))),
+            crate::eval::eval(env, Lval::Sym(String::from("c"))),
             Lval::Sexpr(vec![])
         );
         assert_eq!(
             to_err(&builtin_def(
-                &mut env,
+                env,
                 vec![Lval::Qexpr(vec![
                     Lval::Sym(String::from("a")),
                     Lval::Sym(String::from("b")),
@@ -611,7 +612,7 @@ mod tests {
         );
         assert_eq!(
             to_err(&builtin_def(
-                &mut env,
+                env,
                 vec![
                     Lval::Qexpr(vec![
                         Lval::Sym(String::from("a")),
@@ -628,12 +629,51 @@ mod tests {
         );
         assert_eq!(
             to_err(&builtin_def(
-                &mut env,
+                env,
                 vec![Lval::Qexpr(vec![Lval::Num(1_f64),]), Lval::Num(1_f64),]
             ))
             .unwrap()
             .etype,
             LerrType::WrongType
         );
+    }
+
+    //(\ {a b} {* a b}) 1 2
+    #[test]
+    fn it_correctly_uses_lambda() {
+        let env = &mut init_env();
+        assert!(to_lambda(&builtin_lambda(
+            env,
+            vec![
+                Lval::Qexpr(vec![
+                    Lval::Sym(String::from("a")),
+                    Lval::Sym(String::from("b")),
+                ]),
+                Lval::Qexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Sym(String::from("a")),
+                    Lval::Sym(String::from("b")),
+                ]),
+            ]
+        ))
+        .is_some());
+
+        let expr = Lval::Sexpr(vec![
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("\\")),
+                Lval::Qexpr(vec![
+                    Lval::Sym(String::from("a")),
+                    Lval::Sym(String::from("b")),
+                ]),
+                Lval::Qexpr(vec![
+                    Lval::Sym(String::from("+")),
+                    Lval::Sym(String::from("a")),
+                    Lval::Sym(String::from("b")),
+                ]),
+            ]),
+            Lval::Num(2_f64),
+            Lval::Num(2_f64),
+        ]);
+        assert_eq!(eval::eval(env, expr), Lval::Num(4_f64));
     }
 }
