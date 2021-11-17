@@ -1,7 +1,7 @@
 use crate::Lval;
 use nom::{
     branch::alt,
-    character::complete::{char, multispace0, one_of},
+    character::complete::{char, multispace0, none_of, one_of},
     combinator::{all_consuming, map},
     error::{ErrorKind, ParseError},
     multi::{many0, many1},
@@ -46,6 +46,17 @@ fn parse_symbol(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
     )(s)
 }
 
+fn parse_string(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
+    map(
+        delimited(
+            preceded(multispace0, char('"')),
+            many0(map(none_of("\""), |c| format!("{}", c))),
+            preceded(multispace0, char('"')),
+        ),
+        |o| Lval::Str(o.join("")),
+    )(s)
+}
+
 fn parse_sexpression(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
     delimited(
         preceded(multispace0, char('(')),
@@ -66,6 +77,7 @@ fn parse_expression(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
     alt((
         parse_number,
         parse_symbol,
+        parse_string,
         parse_sexpression,
         parse_qexpression,
     ))(s)

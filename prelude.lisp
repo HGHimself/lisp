@@ -24,3 +24,5 @@ fun {dec n} {- n 1}
 fun {inc n} {+ n 1}
 
 fun {nth l n} {if (== n 0) {head l} {nth (tail l) (dec n)}}
+
+fun {do : l} {if (== l nil) {nil} {last l}}

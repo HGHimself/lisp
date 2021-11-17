@@ -1,13 +1,13 @@
-pub mod alloc;
 pub mod builtin;
+pub mod env;
 pub mod eval;
 pub mod parser;
-pub mod prompt;
-pub mod report;
-pub mod sample;
 
-use crate::builtin::init_builtins;
-use std::{collections::HashMap, error::Error, fmt};
+extern crate wasm_bindgen;
+use wasm_bindgen::prelude::*;
+
+use crate::env::{Lenv, Lookup};
+use std::{error::Error, fmt};
 
 #[derive(Clone)]
 pub enum Lval {
@@ -17,6 +17,7 @@ pub enum Lval {
     Qexpr(Vec<Lval>),
     Fun(Lfun),
     Lambda(Llambda),
+    Str(String),
 }
 
 impl PartialEq for Lval {
@@ -42,6 +43,10 @@ impl PartialEq for Lval {
                 Lval::Fun(_) => true,
                 _ => false,
             },
+            Lval::Str(_) => match other {
+                Lval::Str(_) => true,
+                _ => false,
+            },
             Lval::Lambda(a) => match other {
                 Lval::Lambda(b) => a.body == b.body && a.args == b.args,
                 _ => false,
@@ -58,6 +63,7 @@ impl fmt::Debug for Lval {
             Lval::Sexpr(s) => write!(f, "Sexpr::{:?}", s),
             Lval::Qexpr(q) => write!(f, "Qexpr::{:?}", q),
             Lval::Fun(_) => write!(f, "Fun"),
+            Lval::Str(s) => write!(f, "Str::{}", s),
             Lval::Lambda(l) => write!(f, "Lambda::{{args:{:?}, body:{:?}}}", l.args, l.body),
         }
     }
@@ -99,7 +105,7 @@ impl Lerr {
             LerrType::WrongType => "Incorrect Data Type used",
             LerrType::EmptyList => "Empty List passed to function",
             LerrType::UnboundSymbol => "This Symbol has not been Defined",
-            LerrType::Interrupt => "The program is exiting",
+            LerrType::Interrupt => "User defined Error",
         };
 
         Lerr {
@@ -134,115 +140,7 @@ pub enum LerrType {
     Interrupt,
 }
 
-#[derive(Clone)]
-pub struct Lenv {
-    head: LinkedEnv,
-}
-
-type LinkedEnv = Option<Box<Env>>;
-type Lookup = HashMap<String, Lval>;
-
-#[derive(Clone, Debug)]
-pub struct Env {
-    lookup: Lookup,
-    parent: LinkedEnv,
-}
-
-impl Lenv {
-    pub fn new() -> Self {
-        Lenv { head: None }
-    }
-
-    pub fn push(&mut self, lookup: Lookup) {
-        let new_env = Box::new(Env {
-            lookup,
-            parent: self.head.take(),
-        });
-
-        self.head = Some(new_env);
-    }
-
-    pub fn pop(&mut self) -> Option<Lookup> {
-        self.head.take().map(|env| {
-            self.head = env.parent;
-            env.lookup
-        })
-    }
-
-    pub fn peek(&self) -> Option<&Lookup> {
-        self.head.as_ref().map(|env| &env.lookup)
-    }
-
-    pub fn peek_mut(&mut self) -> Option<&mut Lookup> {
-        self.head.as_mut().map(|env| &mut env.lookup)
-    }
-
-    pub fn iter(&self) -> Iter<'_> {
-        Iter {
-            next: self.head.as_deref(),
-        }
-    }
-
-    pub fn insert(&mut self, key: &str, lval: Lval) {
-        self.peek_mut()
-            .map(|node| node.insert(key.to_owned(), lval));
-    }
-
-    pub fn insert_last(&mut self, key: &str, lval: Lval) {
-        let mut i = self.head.as_mut();
-
-        while let Some(env) = i {
-            i = env.parent.as_mut();
-            if let None = i {
-                env.lookup.insert(key.to_owned(), lval.clone());
-            }
-        }
-    }
-
-    pub fn get(&self, key: &str) -> Option<Lval> {
-        let mut i = self.iter();
-
-        while let Some(env) = i.next() {
-            if let Some(v) = env.get(key) {
-                return Some(v.clone());
-            }
-        }
-
-        None
-    }
-}
-
-impl Drop for Lenv {
-    fn drop(&mut self) {
-        let mut cur_link = self.head.take();
-        while let Some(mut boxed_env) = cur_link {
-            cur_link = boxed_env.parent.take();
-        }
-    }
-}
-
-pub struct Iter<'a> {
-    next: Option<&'a Env>,
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Lookup;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next.map(|env| {
-            self.next = env.parent.as_deref();
-            &env.lookup
-        })
-    }
-}
-
 pub type Lfun = fn(&mut Lenv, Vec<Lval>) -> Result<Lval, Lerr>;
-
-pub fn init_env() -> Lenv {
-    let mut env = Lenv::new();
-    env.push(Lookup::new());
-    init_builtins(&mut env);
-    env
-}
 
 pub fn add_builtin(env: &mut Lenv, sym: &str, fun: Lfun) {
     env.insert(sym, Lval::Fun(fun));
@@ -264,6 +162,14 @@ fn to_sym(expr: Lval) -> Option<String> {
     }
 }
 
+fn to_str(expr: Lval) -> Option<String> {
+    if let Lval::Str(s) = expr {
+        Some(s.clone())
+    } else {
+        None
+    }
+}
+
 fn to_qexpr(expr: Lval) -> Option<Vec<Lval>> {
     if let Lval::Qexpr(s) = expr {
         Some(s.clone())
@@ -278,6 +184,19 @@ fn to_lambda(expr: &Lval) -> Option<Llambda> {
         Some(s.clone())
     } else {
         None
+    }
+}
+
+#[wasm_bindgen]
+pub fn lisp(env: &mut Lenv, input: &str) -> String {
+    if "env" == input {
+        return format!("{:#?}", env.peek().unwrap());
+    }
+
+    let ast = parser::parse(input);
+    match ast {
+        Ok(tree) => format!("{:?}", eval::eval(env, tree.1)),
+        Err(_) => String::from("<Parsing Error>"),
     }
 }
 

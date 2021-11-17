@@ -1,4 +1,6 @@
-use crate::{add_builtin, eval, to_num, to_qexpr, to_sym, Lenv, Lerr, LerrType, Llambda, Lval};
+use crate::{
+    add_builtin, eval, to_num, to_qexpr, to_str, to_sym, Lenv, Lerr, LerrType, Llambda, Lval,
+};
 
 pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "!", builtin_not);
@@ -15,10 +17,11 @@ pub fn init_builtins(env: &mut Lenv) {
 
     add_builtin(env, "\\", builtin_lambda);
     add_builtin(env, "def", builtin_def);
+    add_builtin(env, "=", builtin_var);
 
     add_builtin(env, "if", builtin_if);
 
-    add_builtin(env, "die", builtin_exit);
+    add_builtin(env, "die", builtin_err);
 
     add_builtin(env, "<", builtin_lt);
     add_builtin(env, ">", builtin_gt);
@@ -242,11 +245,16 @@ fn builtin_if(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
     }
 }
 
-fn builtin_exit(_env: &mut Lenv, _operands: Vec<Lval>) -> Result<Lval, Lerr> {
-    Err(Lerr::new(
-        LerrType::Interrupt,
-        String::from("The thread of execution has been interrupted"),
-    ))
+fn builtin_err(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+    let err = to_str(operands[0].clone()).ok_or(Lerr::new(
+        LerrType::WrongType,
+        format!(
+            "Function die needed qexpr for Else but was given {:?}",
+            operands[0]
+        ),
+    ))?;
+
+    Err(Lerr::new(LerrType::Interrupt, err))
 }
 
 fn builtin_head(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
@@ -370,6 +378,14 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
 }
 
 fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+    builtin_assign("def", env, operands)
+}
+
+fn builtin_var(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+    builtin_assign("=", env, operands)
+}
+
+fn builtin_assign(sym: &str, env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
     // need at least an arguement list and a value
     if operands.len() < 2 {
         return Err(Lerr::new(
@@ -411,7 +427,11 @@ fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
 
     // assign each arg to a corresponding value
     for (i, arg) in args.into_iter().enumerate() {
-        env.insert_last(&arg, operands[i + 1].clone());
+        if sym == "def" {
+            env.insert_last(&arg, operands[i + 1].clone());
+        } else {
+            env.insert(&arg, operands[i + 1].clone());
+        }
     }
 
     Ok(Lval::Sexpr(vec![]))
@@ -455,7 +475,7 @@ fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{init_env, to_lambda};
+    use crate::{env::init_env, to_lambda};
 
     fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Result<Lval, Lerr> {
         Ok(Lval::Sexpr(vec![]))

@@ -93,7 +93,7 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Result<Lv
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{init_env, to_lambda};
+    use crate::{env::init_env, to_lambda};
 
     fn empty_fun(_env: &mut Lenv, _operands: Vec<Lval>) -> Result<Lval, Lerr> {
         Ok(Lval::Sexpr(vec![]))
