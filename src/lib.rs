@@ -58,13 +58,17 @@ impl PartialEq for Lval {
 impl fmt::Debug for Lval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Lval::Sym(s) => write!(f, "Sym::{}", s),
-            Lval::Num(n) => write!(f, "Num::{}", n),
-            Lval::Sexpr(s) => write!(f, "Sexpr::{:?}", s),
-            Lval::Qexpr(q) => write!(f, "Qexpr::{:?}", q),
-            Lval::Fun(_) => write!(f, "Fun"),
-            Lval::Str(s) => write!(f, "Str::{}", s),
-            Lval::Lambda(l) => write!(f, "Lambda::{{args:{:?}, body:{:?}}}", l.args, l.body),
+            Lval::Sym(s) => write!(f, "{{\"type\": \"symbol\", \"value\": \"{}\"}}", s),
+            Lval::Num(n) => write!(f, "{}", n),
+            Lval::Sexpr(s) => write!(f, "{{\"type\": \"sexpression\", \"value\": {:?}}}", s),
+            Lval::Qexpr(q) => write!(f, "{{\"type\": \"qexpression\", \"value\": {:?}}}", q),
+            Lval::Fun(_) => write!(f, "{{\"type\": \"builtin\"}}"),
+            Lval::Str(s) => write!(f, "\"{}\"", s),
+            Lval::Lambda(l) => write!(
+                f,
+                "{{\"type\": \"lambda\", \"args\":{:?}, \"body\":{:?}}}",
+                l.args, l.body
+            ),
         }
     }
 }
@@ -88,7 +92,7 @@ impl Llambda {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Lerr {
     etype: LerrType,
     details: String,
@@ -113,6 +117,16 @@ impl Lerr {
             message,
             etype,
         }
+    }
+}
+
+impl fmt::Debug for Lerr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{{\"type\": \"error\", \"etype\":\"{:?}\", \"details\":{:?}, \"message\":{:?}}}",
+            self.etype, self.details, self.message
+        )
     }
 }
 
@@ -195,8 +209,11 @@ pub fn lisp(env: &mut Lenv, input: &str) -> String {
 
     let ast = parser::parse(input);
     match ast {
-        Ok(tree) => format!("{:?}", eval::eval(env, tree.1)),
-        Err(_) => String::from("<Parsing Error>"),
+        Ok(tree) => match eval::eval(env, tree.1) {
+            Ok(r) => format!("{:?}", r),
+            Err(r) => format!("{:?}", r),
+        },
+        Err(e) => format!("{{\"type\": \"error\", \"etype\":\"Parsing Error\", \"details\":\"Could not parse the input\", \"message\":{:?}}}", e),
     }
 }
 

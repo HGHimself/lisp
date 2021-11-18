@@ -30,7 +30,11 @@ fn eval_sexpression(env: &mut Lenv, sexpr: Vec<Lval>) -> Result<Lval, Lerr> {
         return Ok(Lval::Sexpr(results));
     } else if results.len() == 1 {
         // if singular value return singular value
-        return Ok(results[0].clone());
+        let op = results[0].clone();
+        match op {
+            Lval::Lambda(lambda) => call(env, lambda, vec![]),
+            _ => Ok(op),
+        }
     } else {
         let operands = (&results[1..]).to_vec();
         // recognize a builtin function or a lambda
