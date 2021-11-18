@@ -8,6 +8,7 @@ pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "-", builtin_sub);
     add_builtin(env, "*", builtin_mul);
     add_builtin(env, "/", builtin_div);
+    add_builtin(env, "%", builtin_mod);
 
     add_builtin(env, "head", builtin_head);
     add_builtin(env, "tail", builtin_tail);
@@ -65,6 +66,7 @@ fn builtin_op(sym: &str, operands: Vec<Lval>) -> Result<Lval, Lerr> {
         match sym {
             "-" => x -= y,
             "*" => x *= y,
+            "%" => x %= y,
             "/" => {
                 if y == 0_f64 {
                     return Err(Lerr::new(
@@ -200,6 +202,10 @@ fn builtin_sub(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
 
 fn builtin_mul(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
     builtin_op("*", operands)
+}
+
+fn builtin_mod(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+    builtin_op("%", operands)
 }
 
 fn builtin_div(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
