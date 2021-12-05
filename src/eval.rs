@@ -328,8 +328,13 @@ mod tests {
         let partial = eval(env, f).unwrap();
         let partial_lambda = to_lambda(&partial).unwrap();
         assert_eq!(partial_lambda.args.len(), 1);
-        assert!(partial_lambda.env.get("+").is_some());
-        assert!(partial_lambda.env.get("e").is_some());
+        assert!(partial_lambda.env.get("+").is_some()); // we want the std lib
+        assert!(partial_lambda.env.get("e").is_some()); // we want e to get defined
+
+        assert_eq!(
+            call(env, partial_lambda, vec![Lval::Num(25_f64)]).unwrap(),
+            Lval::Num(5_f64)
+        );
     }
 }
 //
