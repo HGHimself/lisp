@@ -53,15 +53,18 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Result<Lv
     let given = args.len();
     let total = func.args.len();
 
+    // load up all of the args
     while args.len() != 0 {
+        // if too many args
         if func.args.len() == 0 {
             return Err(Lerr::new(
                 LerrType::IncorrectParamCount,
-                format!("Function needed {} args but was given {}", total, given),
+                format!("Function needed {} arg(s) but was given {}", total, given),
             ));
         }
-
+        // pop the first element
         let sym = func.args[0].clone();
+        // preserve the rest
         func.args = func.args[1..].to_vec();
 
         if sym == ":" {
@@ -75,7 +78,7 @@ pub fn call(env: &mut Lenv, mut func: Llambda, mut args: Vec<Lval>) -> Result<Lv
             let sym = func.args[0].clone();
             func.args = func.args[1..].to_vec();
             func.env.insert(&sym, Lval::Qexpr(args));
-
+            // sinning but we know that it will need to break here
             break;
         } else {
             let val = args[0].clone();
@@ -125,16 +128,6 @@ mod tests {
             Lval::Fun(empty_fun)
         );
     }
-
-    // #[test]
-    // fn it_handles_singular_errors() {
-    //     let env = &mut init_env();
-    //     let error = Lval::Error(Lerr::new(LerrType::DivZero, String::from("")));
-    //     assert_eq!(
-    //         to_err(&eval(env, error.clone())).unwrap().etype,
-    //         LerrType::DivZero
-    //     );
-    // }
 
     #[test]
     fn it_handles_empty_expressions() {
@@ -203,8 +196,86 @@ mod tests {
     }
 
     #[test]
+    fn it_handles_symbols() {
+        let mut env = init_env();
+
+        assert_eq!(
+            eval(
+                &mut env,
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("def")),
+                    Lval::Qexpr(vec![Lval::Sym(String::from("a"))]),
+                    Lval::Num(1_f64),
+                ]),
+            )
+            .unwrap(),
+            Lval::Sexpr(vec![])
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("a")).unwrap(),
+            Lval::Num(1_f64)
+        );
+
+        env.push(crate::Lookup::new());
+        assert_eq!(
+            eval(
+                &mut env,
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("def")),
+                    Lval::Qexpr(vec![Lval::Sym(String::from("b"))]),
+                    Lval::Num(2_f64),
+                ]),
+            )
+            .unwrap(),
+            Lval::Sexpr(vec![])
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("a")).unwrap(),
+            Lval::Num(1_f64)
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("b")).unwrap(),
+            Lval::Num(2_f64)
+        );
+
+        assert_eq!(
+            eval(
+                &mut env,
+                Lval::Sexpr(vec![
+                    Lval::Sym(String::from("def")),
+                    Lval::Qexpr(vec![Lval::Sym(String::from("c"))]),
+                    Lval::Num(3_f64),
+                ]),
+            )
+            .unwrap(),
+            Lval::Sexpr(vec![])
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("a")).unwrap(),
+            Lval::Num(1_f64)
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("b")).unwrap(),
+            Lval::Num(2_f64)
+        );
+        assert_eq!(
+            eval_symbol(&mut env, String::from("c")).unwrap(),
+            Lval::Num(3_f64)
+        );
+    }
+
+    #[test]
     fn it_handles_lambdas() {
         let env = &mut init_env();
+
+        let immediately_invoked =
+            Llambda::new(vec![], vec![Lval::Num(71_f64)], env.peek().unwrap().clone());
+        assert_eq!(
+            eval(env, Lval::Sexpr(vec![Lval::Lambda(immediately_invoked)])).unwrap(),
+            Lval::Num(71_f64)
+        );
+
+        // normal usage
         let lambda = Llambda::new(
             vec![String::from("a")],
             vec![
@@ -212,19 +283,22 @@ mod tests {
                 Lval::Sym(String::from("a")),
                 Lval::Sym(String::from("a")),
             ],
+            env.peek().unwrap().clone(),
         );
         assert_eq!(
             call(env, lambda, vec![Lval::Num(5_f64)]).unwrap(),
             Lval::Num(10_f64)
         );
 
+        // partial application
         let lambda = Llambda::new(
-            vec![String::from("a"), String::from("b")],
+            vec![String::from("c"), String::from("d")],
             vec![
                 Lval::Sym(String::from("*")),
-                Lval::Sym(String::from("b")),
-                Lval::Sym(String::from("a")),
+                Lval::Sym(String::from("c")),
+                Lval::Sym(String::from("d")),
             ],
+            env.peek().unwrap().clone(),
         );
         let new_lambda = call(env, lambda, vec![Lval::Num(15_f64)]).unwrap();
         assert_eq!(
@@ -232,4 +306,33 @@ mod tests {
             Lval::Num(75_f64)
         );
     }
+
+    #[test]
+    fn it_handles_nested_lambdas() {
+        let env = &mut init_env();
+
+        let f = Lval::Sexpr(vec![
+            Lval::Sexpr(vec![
+                Lval::Sym(String::from("\\")),
+                Lval::Qexpr(vec![Lval::Sym(String::from("e"))]),
+                Lval::Qexpr(vec![
+                    Lval::Sym(String::from("\\")),
+                    Lval::Qexpr(vec![Lval::Sym(String::from("f"))]),
+                    Lval::Qexpr(vec![Lval::Sym(String::from("e"))]),
+                ]),
+            ]),
+            Lval::Num(5_f64),
+        ]);
+
+        // defining e
+        let partial = eval(env, f).unwrap();
+        let partial_lambda = to_lambda(&partial).unwrap();
+        assert_eq!(partial_lambda.args.len(), 1);
+        assert!(partial_lambda.env.get("+").is_some());
+        assert!(partial_lambda.env.get("e").is_some());
+    }
 }
+//
+// ((\ {e} {(\ {f} {* e f})} ) 5) 30
+//
+// ((\ {e} {(\ {e f} {* e f}) e}) 5) 30

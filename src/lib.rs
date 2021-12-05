@@ -81,9 +81,9 @@ pub struct Llambda {
 }
 
 impl Llambda {
-    fn new(args: Vec<String>, body: Vec<Lval>) -> Self {
+    fn new(args: Vec<String>, body: Vec<Lval>, lookup: Lookup) -> Self {
         let mut lenv = Lenv::new();
-        lenv.push(Lookup::new());
+        lenv.push(lookup);
         Llambda {
             args,
             body,
@@ -214,53 +214,5 @@ pub fn lisp(env: &mut Lenv, input: &str) -> String {
             Err(r) => format!("{:?}", r),
         },
         Err(e) => format!("{{\"type\": \"error\", \"etype\":\"Parsing Error\", \"details\":\"Could not parse the input\", \"message\":{:?}}}", e),
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn lenv_nests_properly() {
-        let mut env1 = Lenv::new();
-        env1.push(Lookup::new());
-        env1.insert("abc", Lval::Num(1_f64));
-        env1.insert("def", Lval::Num(2_f64));
-
-        {
-            let mut env2 = env1.clone();
-            env2.push(Lookup::new());
-            env2.insert("abc", Lval::Num(3_f64));
-            env2.insert("ghi", Lval::Num(4_f64));
-
-            assert_eq!(env2.get("def").unwrap().to_owned(), Lval::Num(2_f64));
-            assert_eq!(env2.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
-        }
-
-        assert_eq!(env1.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
-        assert_eq!(env1.get("def").unwrap().to_owned(), Lval::Num(2_f64));
-        assert_eq!(env1.get("ghi"), None);
-    }
-
-    #[test]
-    fn lenv_inserts_last() {
-        let mut env = Lenv::new();
-        env.push(Lookup::new());
-        env.insert("abc", Lval::Num(1_f64));
-        env.insert_last("def", Lval::Num(2_f64));
-
-        env.push(Lookup::new());
-        env.insert("abc", Lval::Num(3_f64));
-        env.insert_last("jkl", Lval::Num(5_f64));
-
-        assert_eq!(env.get("def").unwrap().to_owned(), Lval::Num(2_f64));
-        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
-        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
-
-        env.pop();
-
-        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
-        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
     }
 }

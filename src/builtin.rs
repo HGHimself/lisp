@@ -443,7 +443,7 @@ fn builtin_assign(sym: &str, env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval
     Ok(Lval::Sexpr(vec![]))
 }
 
-fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+fn builtin_lambda(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
     if operands.len() != 2 {
         return Err(Lerr::new(
             LerrType::IncorrectParamCount,
@@ -473,7 +473,8 @@ fn builtin_lambda(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
         ))?;
 
     let body = results[1].clone();
-    let lambda = Llambda::new(args, body);
+    let new_env = env.peek().unwrap().clone();
+    let lambda = Llambda::new(args, body, new_env);
 
     Ok(Lval::Lambda(lambda))
 }

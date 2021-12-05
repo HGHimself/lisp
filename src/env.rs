@@ -114,3 +114,84 @@ pub fn init_env() -> Lenv {
     init_builtins(&mut env);
     env
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn it_nests_properly() {
+        let mut env = Lenv::new();
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(1_f64));
+        env.insert("def", Lval::Num(2_f64));
+
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(3_f64));
+        env.insert("ghi", Lval::Num(4_f64));
+
+        assert_eq!(env.get("def").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
+        env.pop();
+
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("def").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("ghi"), None);
+    }
+
+    #[test]
+    fn it_inserts_last() {
+        let mut env = Lenv::new();
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(1_f64));
+        env.insert_last("def", Lval::Num(2_f64));
+
+        env.push(Lookup::new());
+        env.insert("abc", Lval::Num(3_f64));
+        env.insert_last("jkl", Lval::Num(5_f64));
+
+        assert_eq!(env.get("def").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(3_f64));
+        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
+
+        env.pop();
+
+        assert_eq!(env.get("jkl").unwrap().to_owned(), Lval::Num(5_f64));
+        assert_eq!(env.get("abc").unwrap().to_owned(), Lval::Num(1_f64));
+    }
+
+    #[test]
+    fn it_grabs_from_higher_environments() {
+        let mut env = Lenv::new();
+        env.push(Lookup::new()); // base
+        env.insert("a", Lval::Num(1_f64));
+        env.insert_last("b", Lval::Num(2_f64));
+
+        assert_eq!(env.get("a").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("b").unwrap().to_owned(), Lval::Num(2_f64));
+
+        env.push(Lookup::new()); // 2nd
+        env.insert("f", Lval::Num(3_f64));
+
+        assert_eq!(env.get("a").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("b").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("f").unwrap().to_owned(), Lval::Num(3_f64));
+
+        env.push(Lookup::new()); // 3rd
+        env.insert("g", Lval::Num(4_f64));
+
+        assert_eq!(env.get("a").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("b").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("f").unwrap().to_owned(), Lval::Num(3_f64));
+        assert_eq!(env.get("g").unwrap().to_owned(), Lval::Num(4_f64));
+
+        env.pop();
+        assert_eq!(env.get("a").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("b").unwrap().to_owned(), Lval::Num(2_f64));
+        assert_eq!(env.get("f").unwrap().to_owned(), Lval::Num(3_f64));
+
+        env.pop();
+        assert_eq!(env.get("a").unwrap().to_owned(), Lval::Num(1_f64));
+        assert_eq!(env.get("b").unwrap().to_owned(), Lval::Num(2_f64));
+    }
+}
