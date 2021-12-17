@@ -15,6 +15,7 @@ pub fn init_builtins(env: &mut Lenv) {
     add_builtin(env, "list", builtin_list);
     add_builtin(env, "eval", builtin_eval);
     add_builtin(env, "join", builtin_join);
+    add_builtin(env, "concat", builtin_concat);
 
     add_builtin(env, "\\", builtin_lambda);
     add_builtin(env, "def", builtin_def);
@@ -285,7 +286,7 @@ fn builtin_head(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
                     format!("Function head was given empty list"),
                 ))
             } else {
-                Ok(Lval::Qexpr(vec![qexpr[0].clone()]))
+                Ok(qexpr[0].clone())
             }
         }
         _ => Err(Lerr::new(
@@ -381,6 +382,37 @@ fn builtin_join(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
     }
 
     Ok(Lval::Qexpr(joined))
+}
+
+fn builtin_concat(_env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
+    // need at least 1 arguements
+    if operands.len() < 1 {
+        return Err(Lerr::new(
+            LerrType::IncorrectParamCount,
+            format!(
+                "Function join needed >= 1 arg but was given {}",
+                operands.len()
+            ),
+        ));
+    }
+
+    // cast everything into a qexppr
+    let strings = operands
+        .into_iter()
+        .map(to_str)
+        .collect::<Option<Vec<_>>>()
+        .ok_or(Lerr::new(
+            LerrType::WrongType,
+            format!("Function join needed Strings but was given"),
+        ))?;
+
+    // push each elements from each arguements into one string
+    let mut concatted = String::from("");
+    for string in strings {
+        concatted = format!("{}{}", concatted, string);
+    }
+
+    Ok(Lval::Str(concatted))
 }
 
 fn builtin_def(env: &mut Lenv, operands: Vec<Lval>) -> Result<Lval, Lerr> {
@@ -502,7 +534,7 @@ mod tests {
         ]);
         assert_eq!(
             builtin_head(env, vec![expr.clone()]).unwrap(),
-            Lval::Qexpr(vec![Lval::Sym(String::from("+"))])
+            Lval::Sym(String::from("+"))
         );
 
         let _ = builtin_head(env, vec![])
@@ -688,6 +720,25 @@ mod tests {
                     Lval::Num(1_f64),
                 ]),
             ])
+        );
+    }
+
+    #[test]
+    fn it_correctly_uses_concat() {
+        let env = &mut init_env();
+        assert_eq!(
+            builtin_concat(
+                env,
+                vec![
+                    Lval::Str(String::from("ceci")),
+                    Lval::Str(String::from(" n'est")),
+                    Lval::Str(String::from(" pas")),
+                    Lval::Str(String::from(" une")),
+                    Lval::Str(String::from(" pipe"))
+                ]
+            )
+            .unwrap(),
+            Lval::Str(String::from("ceci n'est pas une pipe"))
         );
     }
 
