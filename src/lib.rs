@@ -58,7 +58,10 @@ impl PartialEq for Lval {
 impl fmt::Debug for Lval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Lval::Sym(s) => write!(f, "{{\"type\": \"symbol\", \"value\": \"{}\"}}", s),
+            Lval::Sym(s) => {
+                let sym = if s == &String::from("\\") { "\\\\" } else { s };
+                write!(f, "{{\"type\": \"symbol\", \"value\": \"{}\"}}", sym)
+            }
             Lval::Num(n) => write!(f, "{}", n),
             Lval::Sexpr(s) => write!(f, "{{\"type\": \"sexpression\", \"value\": {:?}}}", s),
             Lval::Qexpr(q) => write!(f, "{{\"type\": \"qexpression\", \"value\": {:?}}}", q),

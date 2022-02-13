@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "oolisp"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "nom",
  "wasm-bindgen",
