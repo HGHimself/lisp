@@ -3,6 +3,8 @@ name = "oolisp"
 version = "0.1.9"
 authors = ["hgking <hgmaxwellking@gmail.com>"]
 edition = "2018"
+description = "LISP based on Daniel Holden's Book, compiles to web assembly"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
