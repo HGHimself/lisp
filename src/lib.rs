@@ -59,7 +59,11 @@ impl fmt::Debug for Lval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
             Lval::Sym(s) => {
-                let sym = if s == &String::from("\\") { "\\\\" } else { s };
+                let sym = if s == &String::from("\\") {
+                    "\\\\\\\\"
+                } else {
+                    s
+                };
                 write!(f, "{{\"type\": \"symbol\", \"value\": \"{}\"}}", sym)
             }
             Lval::Num(n) => write!(f, "{}", n),
