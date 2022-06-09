@@ -1,9 +1,9 @@
 [package]
 name = "oolisp"
-version = "0.1.9"
+version = "0.2.0"
 authors = ["hgking <hgmaxwellking@gmail.com>"]
 edition = "2018"
-description = "LISP based on Daniel Holden's Book, compiles to web assembly"
+description = "LISP loosely based on Daniel Holden's Book; compiles to web assembly to run in the browser"
 license = "MIT"
 
 [lib]

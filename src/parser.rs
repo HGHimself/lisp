@@ -67,9 +67,9 @@ fn parse_sexpression(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
 
 fn parse_qexpression(s: &str) -> IResult<&str, Lval, SyntaxError<&str>> {
     delimited(
-        preceded(multispace0, char('{')),
+        preceded(multispace0, char('[')),
         map(many0(parse_expression), |e| Lval::Qexpr(e)),
-        preceded(multispace0, char('}')),
+        preceded(multispace0, char(']')),
     )(s)
 }
 
@@ -146,8 +146,8 @@ mod test {
     fn it_parses_qexpr() {
         assert_eq!(
             parse_qexpression(
-                "{* 1
-             2 3}"
+                "[* 1
+             2 3]"
             ),
             Ok((
                 "",
