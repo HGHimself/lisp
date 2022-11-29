@@ -58,23 +58,45 @@ impl PartialEq for Lval {
 impl fmt::Debug for Lval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Lval::Sym(s) => {
-                let sym = if s == &String::from("\\") {
-                    "\\\\\\\\"
-                } else {
-                    s
-                };
-                write!(f, "{{\"type\": \"symbol\", \"value\": \"{}\"}}", sym)
-            }
+            Lval::Sym(s) => write!(f, "{}", s),
             Lval::Num(n) => write!(f, "{}", n),
-            Lval::Sexpr(s) => write!(f, "{{\"type\": \"sexpression\", \"value\": {:?}}}", s),
-            Lval::Qexpr(q) => write!(f, "{{\"type\": \"qexpression\", \"value\": {:?}}}", q),
-            Lval::Fun(_) => write!(f, "{{\"type\": \"builtin\"}}"),
+            Lval::Sexpr(s) => write!(
+                f,
+                "({})",
+                s.into_iter()
+                    .map(|x| match x {
+                        Lval::Sym(sym) => format!("{}", sym),
+                        _ => format!("{:?}", x),
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            Lval::Qexpr(q) => write!(
+                f,
+                "[{}]",
+                q.into_iter()
+                    .map(|x| match x {
+                        Lval::Sym(sym) => format!("{}", sym),
+                        _ => format!("{:?}", x),
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            Lval::Fun(_) => write!(f, "builtin"),
             Lval::Str(s) => write!(f, "\"{}\"", s),
             Lval::Lambda(l) => write!(
                 f,
-                "{{\"type\": \"lambda\", \"args\":{:?}, \"body\":{:?}}}",
-                l.args, l.body
+                "(\\ [{}] [{}])",
+                l.args.join(" "),
+                l.body
+                    .to_owned()
+                    .into_iter()
+                    .map(|x| match x {
+                        Lval::Sym(sym) => format!("{}", sym),
+                        _ => format!("{:?}", x),
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
             ),
         }
     }
@@ -131,7 +153,7 @@ impl fmt::Debug for Lerr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{{\"type\": \"error\", \"etype\":\"{:?}\", \"details\":{:?}, \"message\":{:?}}}",
+            "Error: {:?} - {}; {}",
             self.etype, self.details, self.message
         )
     }
@@ -220,6 +242,6 @@ pub fn lisp(env: &mut Lenv, input: &str) -> String {
             Ok(r) => format!("{:?}", r),
             Err(r) => format!("{:?}", r),
         },
-        Err(e) => format!("{{\"type\": \"error\", \"etype\":\"Parsing Error\", \"details\":\"Could not parse the input\", \"message\":{:?}}}", e),
+        Err(e) => format!("Error: Parsing Error - Could not parse the input; {}", e),
     }
 }
